@@ -13,6 +13,28 @@ document.addEventListener('DOMContentLoaded', () => {
             addTask();
         }
     });
+
+    // Add button click handler
+    document.getElementById('addBtn').addEventListener('click', addTask);
+
+    // Clear buttons
+    document.getElementById('clearCompleted').addEventListener('click', clearCompleted);
+    document.getElementById('clearAll').addEventListener('click', clearAll);
+
+    // Event delegation for task list interactions
+    document.getElementById('taskList').addEventListener('change', (e) => {
+        if (e.target.classList.contains('task-checkbox')) {
+            const taskId = parseInt(e.target.dataset.taskId);
+            toggleTask(taskId);
+        }
+    });
+
+    document.getElementById('taskList').addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-btn')) {
+            const taskId = parseInt(e.target.dataset.taskId);
+            deleteTask(taskId);
+        }
+    });
 });
 
 // Load tasks from localStorage
@@ -123,11 +145,11 @@ function renderTasks() {
             <input 
                 type="checkbox" 
                 class="task-checkbox"
+                data-task-id="${task.id}"
                 ${task.completed ? 'checked' : ''}
-                onchange="toggleTask(${task.id})"
             />
             <span class="task-text">${escapeHtml(task.text)}</span>
-            <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+            <button class="delete-btn" data-task-id="${task.id}">Delete</button>
         </li>
     `).join('');
 }
