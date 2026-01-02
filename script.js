@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTasks();
     // Set nextId to be higher than any existing task ID
     if (tasks.length > 0) {
-        nextId = Math.max(...tasks.map(t => t.id)) + 1;
+        nextId = tasks.reduce((max, task) => Math.max(max, task.id), 0) + 1;
     }
     renderTasks();
     updateStats();
@@ -57,7 +57,12 @@ function loadTasks() {
 
 // Save tasks to localStorage
 function saveTasks() {
-    localStorage.setItem('orbitCheckTasks', JSON.stringify(tasks));
+    try {
+        localStorage.setItem('orbitCheckTasks', JSON.stringify(tasks));
+    } catch (error) {
+        console.error('Failed to save tasks to localStorage:', error);
+        alert('Unable to save tasks. Your browser storage might be full or disabled.');
+    }
 }
 
 // Add a new task
