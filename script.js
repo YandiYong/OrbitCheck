@@ -1,9 +1,14 @@
 // Task storage and management
 let tasks = [];
+let nextId = Date.now();
 
 // Initialize app on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadTasks();
+    // Set nextId to be higher than any existing task ID
+    if (tasks.length > 0) {
+        nextId = Math.max(...tasks.map(t => t.id)) + 1;
+    }
     renderTasks();
     updateStats();
 
@@ -39,9 +44,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Load tasks from localStorage
 function loadTasks() {
-    const savedTasks = localStorage.getItem('orbitCheckTasks');
-    if (savedTasks) {
-        tasks = JSON.parse(savedTasks);
+    try {
+        const savedTasks = localStorage.getItem('orbitCheckTasks');
+        if (savedTasks) {
+            tasks = JSON.parse(savedTasks);
+        }
+    } catch (error) {
+        console.error('Failed to load tasks from localStorage:', error);
+        tasks = [];
     }
 }
 
@@ -61,7 +71,7 @@ function addTask() {
     }
 
     const task = {
-        id: Date.now(),
+        id: nextId++,
         text: taskText,
         completed: false,
         createdAt: new Date().toISOString()
