@@ -32,7 +32,7 @@ import { FormsModule } from '@angular/forms';
         [ngClass]="{ 'list-item': true, active: selectedCategory === cat.name }"
       >
         <div class="item-title">{{cat.name}}</div>
-        <mat-chip class="count-chip" color="accent" selected>{{cat.count}}</mat-chip>
+        <mat-chip class="count-chip" color="accent" style="height:24px; text-align:center;">{{cat.count}}</mat-chip>
       </mat-list-item>
     </mat-nav-list>
   `,

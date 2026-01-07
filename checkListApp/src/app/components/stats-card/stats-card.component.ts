@@ -16,7 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
           <div *ngIf="subtitle" style="font-size:.85rem; color:{{subtitleColor}}; margin-top:6px;">{{subtitle}}</div>
           <ng-content></ng-content>
         </div>
-        <div style="font-size:2.4rem; opacity:.9;">{{emoji}}</div>
+        
       </mat-card-content>
     </mat-card>
   `
@@ -25,7 +25,6 @@ export class StatsCardComponent {
   @Input() count = 0;
   @Input() title = '';
   @Input() subtitle = '';
-  @Input() emoji = '';
   @Input() borderColor = '#000000';
   @Input() subtitleColor = '#374151';
   @Input() clickable = true;

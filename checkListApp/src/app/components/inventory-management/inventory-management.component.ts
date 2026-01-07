@@ -16,6 +16,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
 import { Item } from '../../models/item';
+import inventoryData from '../../../inventoryData.json';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
 import { DetailsDialogComponent } from '../details-dialog/details-dialog.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
@@ -45,6 +46,7 @@ import { ItemTableComponent } from '../item-table/item-table.component';
     DetailsDialogComponent,
     SidebarComponent,
     StatsCardComponent,
+    MatDatepickerModule,
     ItemTableComponent,
     FormsModule
   ],
@@ -68,9 +70,9 @@ import { ItemTableComponent } from '../item-table/item-table.component';
 
       <mat-sidenav-content style="padding:8px 16px;">
         <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px;">
-          <app-stats-card [count]="expiringSoonCount()" title="Items Expiring Soon" subtitle="Due within 7 days" [subtitleColor]="'#f97316'" emoji="📦" borderColor="#f97316" (clicked)="openDetailsForType('expiring')"></app-stats-card>
-          <app-stats-card [count]="replacedThisMonthCount()" title="Replacements This Month" subtitle="Replaced items" [subtitleColor]="'#0284c7'" emoji="🔄" borderColor="#0284c7" (clicked)="openDetailsForType('replaced')"></app-stats-card>
-          <app-stats-card [count]="getChecklistStats().checked" title="Daily Checklists Completed" emoji="✔️" borderColor="#7c3aed" (clicked)="openDetailsForType('checklist')">
+          <app-stats-card [count]="expiringSoonCount()" title="Items Expiring Soon" subtitle="Due within 7 days" [subtitleColor]="'#f97316'" borderColor="#f97316" (clicked)="openDetailsForType('expiring')"></app-stats-card>
+          <app-stats-card [count]="replacedThisMonthCount()" title="Replacements" subtitle="Replaced items" [subtitleColor]="'#0284c7'" borderColor="#0284c7" (clicked)="openDetailsForType('replaced')"></app-stats-card>
+          <app-stats-card [count]="getChecklistStats().checked" title="Checklists Completed" borderColor="#7c3aed" (clicked)="openDetailsForType('checklist')">
             <div *ngIf="getChecklistStats().unavailable > 0" style="display:flex; gap:6px; align-items:center; color:#ef4444; margin-top:6px;">
               <mat-icon>error</mat-icon>
               <span>{{getChecklistStats().unavailable}} Not Available</span>
@@ -81,14 +83,27 @@ import { ItemTableComponent } from '../item-table/item-table.component';
             </div>
           </app-stats-card>
         </div>
-
+          <mat-card  style="margin-left:75rem; width:300px;">
+           <mat-form-field  style="width:100%; appearance:outline;">
+           <mat-label>Select Date Range</mat-label>   
+           <mat-date-range-input [rangePicker]="picker">
+               <input matStartDate placeholder="Start date" [ngModel]="rangeStart()" (ngModelChange)="rangeStart.set($event)" name="start">
+               <input matEndDate placeholder="End date" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event)" name="end">
+          </mat-date-range-input>
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-date-range-picker #picker></mat-date-range-picker>
+          </mat-form-field>
+        </mat-card>
+        
+      
         <mat-card style="background:white; box-shadow:0 8px 30px rgba(2,6,23,0.04);">
           <mat-card-header style="background:#e8f4ff;">
             <mat-card-title>Item List</mat-card-title>
+            <mat-card-subtitle style="margin-left:8px; color:#374151; font-size:0.9rem;">Total: {{filteredInventory().length}} • Shown: {{dateFilteredItems().length}}</mat-card-subtitle>
           </mat-card-header>
 
           <mat-card-content>
-            <app-item-table [items]="filteredInventory()" [categories]="categories()" (viewItem)="openDetailsForItem($event)" (replaceItem)="openReplaceDialog($event)" (toggleCheckbox)="handleCheckboxClick($event)"></app-item-table>
+            <app-item-table [items]="dateFilteredItems()" [categories]="categories()" (viewItem)="openDetailsForItem($event)" (replaceItem)="openReplaceDialog($event)" (toggleCheckbox)="handleCheckboxClick($event)"></app-item-table>
           </mat-card-content>
         </mat-card>
       </mat-sidenav-content>
@@ -103,16 +118,36 @@ import { ItemTableComponent } from '../item-table/item-table.component';
 export class InventoryManagementComponent {
   private dialog = inject(MatDialog);
 
-  inventory = signal<Item[]>([
-    { id: 1, name: 'Printer Toner', category: 'Office Supplies', expiryDate: '2024-06-15', replacementDate: null, status: 'available', checked: false },
-    { id: 2, name: 'Computer Mouse', category: 'IT Equipment', expiryDate: '2024-06-20', replacementDate: null, status: 'available', checked: false },
-    { id: 3, name: 'Laptop Charger', category: 'IT Equipment', expiryDate: '2024-07-23', replacementDate: null, status: 'available', checked: false },
-    { id: 4, name: 'Hard Hat', category: 'Safety Gear', expiryDate: '2024-06-21', replacementDate: null, status: 'available', checked: false },
-    { id: 5, name: 'First Aid Kit', category: 'Medical Kits', expiryDate: '2024-06-23', replacementDate: null, status: 'available', checked: false },
-    { id: 6, name: 'Router Cable', category: 'IT Equipment', expiryDate: '2026-01-09', replacementDate: null, status: 'available', checked: true },
-    { id: 7, name: 'Safety Gloves', category: 'Safety Gear', expiryDate: '2024-06-25', replacementDate: null, status: 'available', checked: false },
-    { id: 8, name: 'Office Chair', category: 'Office Supplies', expiryDate: '2024-08-10', replacementDate: null, status: 'unavailable', checked: true },
-  ]);
+  // date range signals bound from template
+  rangeStart = signal<Date | null>(null);
+  rangeEnd = signal<Date | null>(null);
+
+  // computed list: if a date range is selected, show checked items within that range
+  dateFilteredItems = computed(() => {
+    const rs = this.rangeStart();
+    const re = this.rangeEnd();
+    // If no date range selected, show all items (default view)
+    if (!rs || !re) return this.filteredInventory();
+
+    const start = new Date(rs);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(re);
+    end.setHours(23, 59, 59, 999);
+
+    // Show items (within the currently selected category) that were checked during the selected range (history),
+    // regardless of current `status` (available/unavailable).
+    return this.filteredInventory().filter(i => {
+      if (!i.checkedDate) return false;
+      const d = new Date(i.checkedDate);
+      return d >= start && d <= end;
+    });
+  });
+
+  inventory = signal<Item[]>((inventoryData as any[]).flatMap(cat => (cat.items || []).map((it: any) => ({
+    ...it,
+    name: it.itemName ?? it.name,
+    category: it.category ?? cat.category
+  }))) as Item[]);
 
   selectedCategory = signal<string>('All Items');
   selectedItem = signal<Item | { type: string; items: Item[] } | null>(null);
@@ -121,13 +156,28 @@ export class InventoryManagementComponent {
 
   categories = computed(() => {
     const inv = this.inventory();
+    const iconMap: Record<string, string> = {
+      'TOP': '',
+      'AIRWAYS': '',
+      'BREATHING': '',
+      'CIRCULATION': '',
+      'DRUGS': '',
+      'EXTRAS': '',
+      'RESUSCITATION Algorithm & Documents': '',
+    };
+
+    const map = new Map<string, { name: string; icon: string; count: number }>();
+    for (const item of inv) {
+      const cat = item.category ?? 'Uncategorized';
+      if (!map.has(cat)) {
+        map.set(cat, { name: cat, icon: iconMap[cat] ?? 'inventory_2', count: 0 });
+      }
+      map.get(cat)!.count++;
+    }
+
     return [
       { name: 'All Items', icon: 'inventory_2', count: inv.length },
-      { name: 'Office Supplies', icon: 'receipt_long', count: inv.filter(i => i.category === 'Office Supplies').length },
-      { name: 'IT Equipment', icon: 'devices', count: inv.filter(i => i.category === 'IT Equipment').length },
-      { name: 'Safety Gear', icon: 'security', count: inv.filter(i => i.category === 'Safety Gear').length },
-      { name: 'Maintenance', icon: 'build', count: 0 },
-      { name: 'Medical Kits', icon: 'health_and_safety', count: inv.filter(i => i.category === 'Medical Kits').length },
+      ...Array.from(map.values())
     ];
   });
 
@@ -142,7 +192,7 @@ export class InventoryManagementComponent {
     const now = new Date();
     const seven = new Date();
     seven.setDate(now.getDate() + 7);
-    return this.inventory().filter(item => {
+    return this.filteredInventory().filter(item => {
       if (!item.expiryDate) return false;
       const d = new Date(item.expiryDate);
       return d <= seven && d >= now;
@@ -151,7 +201,7 @@ export class InventoryManagementComponent {
 
   replacedThisMonthCount = computed(() => {
     const now = new Date();
-    return this.inventory().filter(item => {
+    return this.filteredInventory().filter(item => {
       if (!item.replacementDate) return false;
       const r = new Date(item.replacementDate);
       return r.getMonth() === now.getMonth() && r.getFullYear() === now.getFullYear();
@@ -159,7 +209,7 @@ export class InventoryManagementComponent {
   });
 
   getChecklistStats = computed(() => {
-    const inv = this.inventory();
+    const inv = this.filteredInventory();
     const checked = inv.filter(i => i.checked).length;
     const unavailable = inv.filter(i => i.checked && i.status === 'unavailable').length;
     return { checked, unavailable, total: inv.length };
@@ -178,11 +228,14 @@ export class InventoryManagementComponent {
     this.inventory.update(items => items.map(i => {
       if (i.id !== item.id) return i;
       if (!i.checked) {
-        return { ...i, checked: true, status: 'available' };
+        // mark checked and record timestamp (history)
+        return { ...i, checked: true, status: 'available', checkedDate: new Date().toISOString() };
       } else if (i.status === 'available') {
+        // toggle to unavailable while staying checked
         return { ...i, status: 'unavailable' };
       } else {
-        return { ...i, checked: false, status: 'available' };
+        // third click: uncheck — clear checkedDate so history column is cleared
+        return { ...i, checked: false, status: 'available', checkedDate: null };
       }
     }));
   }
@@ -217,14 +270,14 @@ export class InventoryManagementComponent {
       const now = new Date();
       const seven = new Date();
       seven.setDate(now.getDate() + 7);
-      const items = this.inventory().filter(i => i.expiryDate && new Date(i.expiryDate) <= seven && new Date(i.expiryDate) >= now);
+      const items = this.filteredInventory().filter(i => i.expiryDate && new Date(i.expiryDate) <= seven && new Date(i.expiryDate) >= now);
       if (items.length) this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'expiring', items } });
     } else if (type === 'replaced') {
       const now = new Date();
-      const items = this.inventory().filter(i => i.replacementDate && new Date(i.replacementDate).getMonth() === now.getMonth() && new Date(i.replacementDate).getFullYear() === now.getFullYear());
+      const items = this.filteredInventory().filter(i => i.replacementDate && new Date(i.replacementDate).getMonth() === now.getMonth() && new Date(i.replacementDate).getFullYear() === now.getFullYear());
       if (items.length) this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'replaced', items } });
     } else if (type === 'checklist') {
-      const items = this.inventory().filter(i => i.checked);
+      const items = this.filteredInventory().filter(i => i.checked);
       if (items.length) this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'checklist', items } });
     }
   }

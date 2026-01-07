@@ -1,0 +1,247 @@
+[
+  {
+    "category": "TOP",
+    "items": [
+      {
+        "id": 1,
+        "itemName": "Defibrillator / AED with pads",
+        "expiryDate": "2026-12-31",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 2,
+        "itemName": "Disposable Razor, blunt scissors, small towel (ALD bag)",
+        "expiryDate": "2025-06-30",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 3,
+        "itemName": "Ambubag with reservoir, tubing and masks",
+        "expiryDate": "2026-05-01",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 4,
+        "itemName": "Manual Blood Pressure Monitor with cuffs",
+        "expiryDate": "2027-01-01",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 5,
+        "itemName": "ECG Machine",
+        "expiryDate": "2027-01-01",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      }
+    ]
+  },
+
+  {
+    "category": "AIRWAYS",
+    "items": [
+      {
+        "id": 20,
+        "itemName": "Endotracheal Tubes (Sizes 6.5–8.0)",
+        "expiryDate": "2025-09-30",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 21,
+        "itemName": "Laryngeal Mask Airways (Sizes 3–5)",
+        "expiryDate": "2026-03-15",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 22,
+        "itemName": "Laryngoscope Handle and Blades",
+        "expiryDate": "2027-01-01",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 23,
+        "itemName": "Bougie and Introducers (All sizes)",
+        "expiryDate": "2026-08-01",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      }
+    ]
+  },
+
+  {
+    "category": "BREATHING",
+    "items": [
+      {
+        "id": 40,
+        "itemName": "Portable Oxygen Cylinder with Regulator",
+        "expiryDate": "2026-11-30",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 41,
+        "itemName": "Oxygen Masks and Nasal Cannula",
+        "expiryDate": "2025-12-01",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 42,
+        "itemName": "Suction Unit and Catheters",
+        "expiryDate": "2026-04-15",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      }
+    ]
+  },
+
+  {
+    "category": "CIRCULATION",
+    "items": [
+      {
+        "id": 60,
+        "itemName": "IV Fluids (Normal Saline)",
+        "expiryDate": "2025-10-30",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 61,
+        "itemName": "IV Cannulae (14G–24G)",
+        "expiryDate": "2026-02-28",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 62,
+        "itemName": "Tourniquet and Alcohol Swabs",
+        "expiryDate": "2026-06-01",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      }
+    ]
+  },
+
+  {
+    "category": "DRUGS",
+    "items": [
+      {
+        "id": 80,
+        "itemName": "Adrenaline / Epinephrine",
+        "expiryDate": "2025-07-31",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 81,
+        "itemName": "Atropine",
+        "expiryDate": "2025-09-15",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 82,
+        "itemName": "Naloxone",
+        "expiryDate": "2026-01-10",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      }
+    ]
+  },
+
+  {
+    "category": "EXTRAS",
+    "items": [
+      {
+        "id": 100,
+        "itemName": "Syringes",
+        "expiryDate": "2026-12-31",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null,
+        "syringes": [
+          { "size": "20ml", "available": true, "checked": false },
+          { "size": "10ml", "available": true, "checked": false },
+          { "size": "5ml", "available": true, "checked": false },
+          { "size": "3ml", "available": true, "checked": false }
+        ]
+      },
+      {
+        "id": 101,
+        "itemName": "Gloves Latex Free (Medium & Large)",
+        "expiryDate": "2025-11-30",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      }
+    ]
+  },
+
+  {
+    "category": "RESUSCITATION Algorithm & Documents",
+    "items": [
+      {
+        "id": 120,
+        "itemName": "Advanced Life Support Algorithm",
+        "expiryDate": "2027-01-01",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 121,
+        "itemName": "Anaphylaxis Algorithm",
+        "expiryDate": "2027-01-01",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      }
+    ]
+  }
+]

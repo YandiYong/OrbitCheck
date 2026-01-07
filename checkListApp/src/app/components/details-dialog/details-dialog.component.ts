@@ -11,7 +11,7 @@ import { Item } from '../../models/item';
   standalone: true,
   imports: [CommonModule, MatCardModule, MatDialogModule, MatDividerModule, MatIconModule],
   template: `
-    <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px;">
       <h2 style="margin:0">
         <ng-container *ngIf="data?.type; else singleTitle">
           <ng-container [ngSwitch]="data.type">
@@ -45,7 +45,7 @@ import { Item } from '../../models/item';
 
       <div style="display:flex; flex-direction:column; gap:10px;">
         <mat-card *ngFor="let item of data.items" style="padding:12px;">
-          <mat-card-title style="font-weight:700">{{item.name}}</mat-card-title>
+          <mat-card-title style="font-weight:700;">{{item.name}}</mat-card-title>
           <mat-card-subtitle>{{item.category}}</mat-card-subtitle>
           <mat-card-content style="margin-top:8px; color:#374151;">
             <div>Expiry: {{item.expiryDate}} <span *ngIf="isExpired(item.expiryDate)" style="color:#b91c1c">(EXPIRED)</span></div>
@@ -58,8 +58,8 @@ import { Item } from '../../models/item';
 
     <ng-template #singleView>
       <mat-card>
-        <mat-card-title>{{data?.name}}</mat-card-title>
-        <mat-card-subtitle>{{data?.category}}</mat-card-subtitle>
+        <mat-card-subtitle style="padding:12px;">{{data?.category}}</mat-card-subtitle>
+        <mat-card-title style="padding:12px;">{{data?.name}}</mat-card-title>
         <mat-card-content style="margin-top:8px;">
           <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
             <div>

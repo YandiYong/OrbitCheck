@@ -11,6 +11,7 @@ import { Item } from '../../models/item';
   standalone: true,
   imports: [CommonModule, MatTableModule, MatIconModule, MatButtonModule, MatCardModule],
   template: `
+     
     <table mat-table [dataSource]="items" style="width:100%;" class="mat-elevation-z1 full-table">
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:12px;">Status</th>
@@ -56,8 +57,17 @@ import { Item } from '../../models/item';
         </td>
       </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="['status','item','actions']"></tr>
-      <tr mat-row *matRowDef="let row; columns: ['status','item','actions'];"></tr>
+      <ng-container matColumnDef="checkedDate">
+        <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:12px;">Checked</th>
+        <td mat-cell *matCellDef="let item" style="padding:12px;">
+          <div style="color:#374151;">
+            {{ item.checkedDate ? (item.checkedDate | date:'short') : '-' }}
+          </div>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="['status','item','checkedDate','actions']"></tr>
+      <tr mat-row *matRowDef="let row; columns: ['status','item','checkedDate','actions'];"></tr>
     </table>
   `,
   styles: [`
