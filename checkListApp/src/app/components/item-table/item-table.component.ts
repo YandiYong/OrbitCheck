@@ -42,6 +42,14 @@ import { Item } from '../../models/item';
               <div style="color:#6b7280; font-size:0.85rem;">
                 Expires: {{item.expiryDate}} <span *ngIf="isExpired(item.expiryDate)" style="color:#b91c1c; font-weight:700; margin-left:6px;">(EXPIRED)</span>
               </div>
+              <div *ngIf="item.syringes" style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+                <div *ngFor="let s of item.syringes; let i = index" style="display:flex; align-items:center; gap:8px;">
+                  <div (click)="toggleSubitem.emit({ itemId: item.id, index: i })" style="width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid #d1d5db;" [ngStyle]="{ background: s.checked ? (s.available ? '#ecfdf5' : '#fff1f2') : 'white', borderColor: s.checked ? (s.available ? '#16a34a' : '#ef4444') : '#d1d5db' }">
+                    <mat-icon *ngIf="s.checked">{{ s.available ? 'check' : 'close' }}</mat-icon>
+                  </div>
+                  <div style="font-size:0.9rem; color:#374151;">{{s.size}} — <span style="color:#6b7280;">{{ s.available ? 'Available' : 'Not Available' }}</span></div>
+                </div>
+              </div>
             </div>
           </div>
         </td>
@@ -80,6 +88,7 @@ export class ItemTableComponent {
   @Output() viewItem = new EventEmitter<Item>();
   @Output() replaceItem = new EventEmitter<Item>();
   @Output() toggleCheckbox = new EventEmitter<Item>();
+  @Output() toggleSubitem = new EventEmitter<{ itemId: number; index: number }>();
 
   isExpired(date?: string | null) {
     if (!date) return false;

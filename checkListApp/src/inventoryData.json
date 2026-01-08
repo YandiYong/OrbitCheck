@@ -203,16 +203,25 @@
         "checked": false,
         "checkedDate": null,
         "syringes": [
-          { "size": "20ml", "available": true, "checked": false },
-          { "size": "10ml", "available": true, "checked": false },
-          { "size": "5ml", "available": true, "checked": false },
-          { "size": "3ml", "available": true, "checked": false }
+          { "size": "20ml x 5", "available": true, "checked": false },
+          { "size": "10ml x 5", "available": true, "checked": false },
+          { "size": "5ml x 5", "available": true, "checked": false },
+          { "size": "3ml/2ml x 5", "available": true, "checked": false }
         ]
       },
       {
         "id": 101,
         "itemName": "Gloves Latex Free (Medium & Large)",
         "expiryDate": "2025-11-30",
+        "replacementDate": null,
+        "status": "available",
+        "checked": false,
+        "checkedDate": null
+      },
+      {
+        "id": 102,
+        "itemName": "Insulin syringe x 2",
+        "expiryDate": "2027-01-01",
         "replacementDate": null,
         "status": "available",
         "checked": false,

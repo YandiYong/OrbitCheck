@@ -103,7 +103,7 @@ import { ItemTableComponent } from '../item-table/item-table.component';
           </mat-card-header>
 
           <mat-card-content>
-            <app-item-table [items]="dateFilteredItems()" [categories]="categories()" (viewItem)="openDetailsForItem($event)" (replaceItem)="openReplaceDialog($event)" (toggleCheckbox)="handleCheckboxClick($event)"></app-item-table>
+            <app-item-table [items]="dateFilteredItems()" [categories]="categories()" (viewItem)="openDetailsForItem($event)" (replaceItem)="openReplaceDialog($event)" (toggleCheckbox)="handleCheckboxClick($event)" (toggleSubitem)="handleSubitemToggle($event)"></app-item-table>
           </mat-card-content>
         </mat-card>
       </mat-sidenav-content>
@@ -229,14 +229,49 @@ export class InventoryManagementComponent {
       if (i.id !== item.id) return i;
       if (!i.checked) {
         // mark checked and record timestamp (history)
+        // if item has subitems, mark them checked too
+        if ((i as any).syringes && Array.isArray((i as any).syringes)) {
+          const syr = (i as any).syringes.map((s: any) => ({ ...s, checked: true }));
+          return { ...i, checked: true, status: 'available', checkedDate: new Date().toISOString(), syringes: syr };
+        }
         return { ...i, checked: true, status: 'available', checkedDate: new Date().toISOString() };
       } else if (i.status === 'available') {
         // toggle to unavailable while staying checked
         return { ...i, status: 'unavailable' };
       } else {
         // third click: uncheck — clear checkedDate so history column is cleared
+        // if item has subitems, clear their checked flags too
+        if ((i as any).syringes && Array.isArray((i as any).syringes)) {
+          const syr = (i as any).syringes.map((s: any) => ({ ...s, checked: false }));
+          return { ...i, checked: false, status: 'available', checkedDate: null, syringes: syr };
+        }
         return { ...i, checked: false, status: 'available', checkedDate: null };
       }
+    }));
+  }
+
+  handleSubitemToggle(event: { itemId: number; index: number }) {
+    this.inventory.update(items => items.map(i => {
+      if (i.id !== event.itemId) return i;
+      const copy: any = { ...i };
+      if (!copy.syringes || !Array.isArray(copy.syringes)) return i;
+
+      // Toggle availability for the specific subitem; mark it as checked
+      const syr = copy.syringes.map((s: any, idx: number) => {
+        if (idx !== event.index) return s;
+        return { ...s, available: !s.available, checked: true };
+      });
+      copy.syringes = syr;
+
+      // Parent should be checked and have a checkedDate when subitem toggled
+      copy.checked = true;
+      copy.checkedDate = new Date().toISOString();
+
+      // If any subitem is not available, parent becomes 'unavailable'
+      const anyNotAvailable = syr.some((s: any) => s.available === false);
+      copy.status = anyNotAvailable ? 'unavailable' : 'available';
+
+      return copy;
     }));
   }
 
