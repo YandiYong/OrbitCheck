@@ -9,7 +9,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 1,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 2,
@@ -18,7 +21,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 1,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 3,
@@ -27,7 +33,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 1,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 4,
@@ -36,7 +45,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 1,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 5,
@@ -45,7 +57,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 1,
+        "usageHistory": [],
+        "usedToday": null
       }
     ]
   },
@@ -60,7 +75,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 10,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 21,
@@ -69,7 +87,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 6,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 22,
@@ -78,7 +99,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 4,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 23,
@@ -87,7 +111,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 8,
+        "usageHistory": [],
+        "usedToday": null
       }
     ]
   },
@@ -102,7 +129,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 2,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 41,
@@ -111,7 +141,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 20,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 42,
@@ -120,7 +153,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 5,
+        "usageHistory": [],
+        "usedToday": null
       }
     ]
   },
@@ -135,7 +171,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 12,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 61,
@@ -144,7 +183,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 30,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 62,
@@ -153,7 +195,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 25,
+        "usageHistory": [],
+        "usedToday": null
       }
     ]
   },
@@ -168,7 +213,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 4,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 81,
@@ -177,7 +225,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 4,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 82,
@@ -186,7 +237,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 6,
+        "usageHistory": [],
+        "usedToday": null
       }
     ]
   },
@@ -202,6 +256,9 @@
         "status": "available",
         "checked": false,
         "checkedDate": null,
+        "quantity": 20,
+        "usageHistory": [],
+        "usedToday": null,
         "syringes": [
           { "size": "20ml x 5", "available": true, "checked": false },
           { "size": "10ml x 5", "available": true, "checked": false },
@@ -216,7 +273,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 100,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 102,
@@ -225,7 +285,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 10,
+        "usageHistory": [],
+        "usedToday": null
       }
     ]
   },
@@ -240,7 +303,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 1,
+        "usageHistory": [],
+        "usedToday": null
       },
       {
         "id": 121,
@@ -249,7 +315,10 @@
         "replacementDate": null,
         "status": "available",
         "checked": false,
-        "checkedDate": null
+        "checkedDate": null,
+        "quantity": 1,
+        "usageHistory": [],
+        "usedToday": null
       }
     ]
   }

@@ -26,11 +26,16 @@ import { Item } from '../../models/item';
   ],
   template: `
     <h2 mat-dialog-title>Replace Item</h2>
-    <mat-dialog-content>
+    <mat-dialog-content style="max-height:60vh; overflow:auto; padding:8px; box-sizing:border-box;">
       <div style="display:flex; flex-direction:column; gap:12px; width:100%; margin-top:8px;">
         <mat-form-field appearance="fill">
           <mat-label>Item Name</mat-label>
           <input matInput [value]="data.item.name" disabled />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Replacement Quantity</mat-label>
+          <input matInput type="number" min="0" [(ngModel)]="quantity" />
         </mat-form-field>
 
         <mat-form-field appearance="fill">
@@ -54,6 +59,7 @@ import { Item } from '../../models/item';
 export class ReplaceDialogComponent {
   expiryDate: string | null;
   replacementDate: string | null;
+  quantity: number | null;
 
   constructor(
     private fb: FormBuilder,
@@ -62,13 +68,14 @@ export class ReplaceDialogComponent {
   ) {
     this.expiryDate = data.item.expiryDate || null;
     this.replacementDate = new Date().toISOString().split('T')[0];
+    this.quantity = data.item.quantity ?? 0;
   }
 
   save() {
     if (!this.expiryDate || !this.replacementDate) {
       return;
     }
-    this.dialogRef.close({ expiryDate: this.expiryDate, replacementDate: this.replacementDate });
+    this.dialogRef.close({ expiryDate: this.expiryDate, replacementDate: this.replacementDate, quantity: this.quantity });
   }
 
   close() {

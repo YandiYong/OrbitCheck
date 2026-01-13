@@ -16,12 +16,14 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
 import { Item } from '../../models/item';
+import { DailyChecklistService } from '../../services/daily-checklist.service';
 import inventoryData from '../../../inventoryData.json';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
 import { DetailsDialogComponent } from '../details-dialog/details-dialog.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { StatsCardComponent } from '../stats-card/stats-card.component';
 import { ItemTableComponent } from '../item-table/item-table.component';
+import { UsageDialogComponent } from '../usage-dialog/usage-dialog.component';
 
 @Component({
   selector: 'app-inventory-management',
@@ -44,6 +46,7 @@ import { ItemTableComponent } from '../item-table/item-table.component';
     MatDividerModule,
     ReplaceDialogComponent,
     DetailsDialogComponent,
+    UsageDialogComponent,
     SidebarComponent,
     StatsCardComponent,
     MatDatepickerModule,
@@ -53,7 +56,10 @@ import { ItemTableComponent } from '../item-table/item-table.component';
   template: `
   <mat-toolbar color="primary" style="display:flex; justify-content:space-between;">
     <div style="display:flex; align-items:center; gap:8px;">
-      <span style="font-weight:700; font-size:2.5rem;">Emergency Trolley Check List</span>
+      <div style="display:flex; ">
+        <span style="font-weight:700; font-size:2.2rem;">Emergency Trolley Check List</span>
+        <span style="font-size:2rem; opacity:0.9; margin-left:32px;">{{ today | date:'fullDate' }}</span>
+      </div>
     </div>
     <div style="display:flex; align-items:center; gap:8px;">
       <button mat-icon-button aria-label="search"><mat-icon>search</mat-icon></button>
@@ -65,7 +71,13 @@ import { ItemTableComponent } from '../item-table/item-table.component';
   <div style="display:flex; gap:16px; padding:12px;">
     <mat-sidenav-container style="height:calc(100vh - 64px); width:100%;">
       <mat-sidenav mode="side" opened style="width:260px; padding:12px; background:white; box-shadow:0 6px 18px rgba(16,24,40,0.06);">
-        <app-sidebar [categories]="categories()" [selectedCategory]="selectedCategory()" (selectCategory)="toggleCategory($event)"></app-sidebar>
+        <app-sidebar
+          [categories]="categories()"
+          [selectedCategory]="selectedCategory()"
+          [previousUnavailable]="previousDayUnavailableChecked()"
+          [expiredNeedsReplacement]="expiredNeedsReplacement()"
+          (selectCategory)="toggleCategory($event)">
+        </app-sidebar>
       </mat-sidenav>
 
       <mat-sidenav-content style="padding:8px 16px;">
@@ -95,7 +107,6 @@ import { ItemTableComponent } from '../item-table/item-table.component';
           </mat-form-field>
         </mat-card>
         
-      
         <mat-card style="background:white; box-shadow:0 8px 30px rgba(2,6,23,0.04);">
           <mat-card-header style="background:#e8f4ff;">
             <mat-card-title>Item List</mat-card-title>
@@ -117,6 +128,10 @@ import { ItemTableComponent } from '../item-table/item-table.component';
 })
 export class InventoryManagementComponent {
   private dialog = inject(MatDialog);
+  private dailyService = inject(DailyChecklistService);
+
+  // today's date for display
+  today: Date = new Date();
 
   // date range signals bound from template
   rangeStart = signal<Date | null>(null);
@@ -225,6 +240,35 @@ export class InventoryManagementComponent {
   }
 
   handleCheckboxClick(item: Item) {
+    // prevent toggling if item is expired and awaiting replacement
+    if (this.isExpired(item.expiryDate)) return;
+    // We'll handle the "checking" action specially so we can collect used quantity when present.
+    // If item is currently unchecked and has a numeric quantity, open a dialog to record usage.
+    if (!item.checked && (typeof item.quantity === 'number')) {
+      const ref = this.dialog.open(UsageDialogComponent, { width: '420px', data: { item } });
+      ref.afterClosed().subscribe((res: any) => {
+        if (!res || typeof res.used !== 'number') return; // user cancelled or no value
+        let used = res.used;
+        this.inventory.update(items => items.map(i => {
+          if (i.id !== item.id) return i;
+          // deduct quantity, record usage history
+          const prevQ = i.quantity ?? 0;
+          // cap used to previous available
+          used = Math.min(used, prevQ);
+          const newQ = Math.max(0, prevQ - used);
+          const history = (i.usageHistory ?? []).concat([{ date: new Date().toISOString(), used }]);
+          const now = new Date().toISOString();
+          // if no stock left, mark as unavailable and checked so replace action shows
+          const newStatus: 'available' | 'unavailable' = newQ === 0 ? 'unavailable' : 'available';
+          const newChecked = true;
+          return { ...i, checked: newChecked, status: newStatus, checkedDate: now, quantity: newQ, usageHistory: history, usedToday: used };
+        }));
+        this.saveTodaySnapshot();
+      });
+      return;
+    }
+
+    // Otherwise fallback to previous toggle behavior (no quantity prompt)
     this.inventory.update(items => items.map(i => {
       if (i.id !== item.id) return i;
       if (!i.checked) {
@@ -248,11 +292,15 @@ export class InventoryManagementComponent {
         return { ...i, checked: false, status: 'available', checkedDate: null };
       }
     }));
+    // persist today's snapshot after change
+    this.saveTodaySnapshot();
   }
 
   handleSubitemToggle(event: { itemId: number; index: number }) {
     this.inventory.update(items => items.map(i => {
       if (i.id !== event.itemId) return i;
+      // prevent toggling subitems if the parent item is expired
+      if (this.isExpired(i.expiryDate)) return i;
       const copy: any = { ...i };
       if (!copy.syringes || !Array.isArray(copy.syringes)) return i;
 
@@ -273,6 +321,8 @@ export class InventoryManagementComponent {
 
       return copy;
     }));
+    // persist today's snapshot after change
+    this.saveTodaySnapshot();
   }
 
   getCheckboxStyle(item: Item) {
@@ -289,15 +339,39 @@ export class InventoryManagementComponent {
     const ref = this.dialog.open(ReplaceDialogComponent, { width: '420px', data: { item } });
     ref.afterClosed().subscribe((result: any) => {
       if (result && result.expiryDate && result.replacementDate) {
+        const qty = typeof result.quantity === 'number' ? result.quantity : (item.quantity ?? 0);
         this.inventory.update(items => items.map(i => i.id === item.id ? {
           ...i,
           expiryDate: result.expiryDate,
           replacementDate: result.replacementDate,
-          status: 'available',
-          checked: false
+          status: qty > 0 ? 'available' : 'unavailable',
+          checked: false,
+          quantity: qty,
+          usedToday: null
         } : i));
+        // persist after replacement
+        this.saveTodaySnapshot();
       }
     });
+  }
+
+  private saveTodaySnapshot() {
+    // snapshot only essential fields to keep storage small
+    const snapshot = this.inventory().map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null }));
+    this.dailyService.saveSnapshot(new Date(), snapshot);
+  }
+
+  // summary: previous day's items that were checked and not available
+  previousDayUnavailableChecked() {
+    const prev = this.dailyService.getPreviousSnapshot();
+    if (!prev) return [];
+    return (prev as any[]).filter((p: any) => p.checked && p.status === 'unavailable');
+  }
+
+  // expired items needing replacement
+  expiredNeedsReplacement() {
+    const now = new Date();
+    return this.filteredInventory().filter(i => i.expiryDate && new Date(i.expiryDate) < now && !i.replacementDate);
   }
 
   openDetailsForType(type: 'expiring' | 'replaced' | 'checklist') {

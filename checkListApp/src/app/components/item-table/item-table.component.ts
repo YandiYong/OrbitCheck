@@ -16,10 +16,11 @@ import { Item } from '../../models/item';
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:12px;">Status</th>
         <td mat-cell *matCellDef="let item" style="padding:12px;">
-          <div style="display:flex; align-items:center; gap:12px; cursor:pointer;" (click)="toggleCheckbox.emit(item)">
+          <div [style.cursor]="isExpired(item.expiryDate) ? 'not-allowed' : 'pointer'" style="display:flex; align-items:center; gap:12px;" (click)="isExpired(item.expiryDate) ? null : toggleCheckbox.emit(item)">
             <div [ngStyle]="getCheckboxStyle(item)" style="width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid #d1d5db;">
-              <mat-icon *ngIf="item.checked && item.status === 'available'">check</mat-icon>
-              <mat-icon *ngIf="item.checked && item.status === 'unavailable'">close</mat-icon>
+              <mat-icon *ngIf="isExpired(item.expiryDate)" style="opacity:0.5;">block</mat-icon>
+              <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'available'">check</mat-icon>
+              <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'unavailable'">close</mat-icon>
             </div>
             <div>
               <div *ngIf="!item.checked" style="color:#6b7280;">Unchecked</div>
@@ -44,7 +45,7 @@ import { Item } from '../../models/item';
               </div>
               <div *ngIf="item.syringes" style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
                 <div *ngFor="let s of item.syringes; let i = index" style="display:flex; align-items:center; gap:8px;">
-                  <div (click)="toggleSubitem.emit({ itemId: item.id, index: i })" style="width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid #d1d5db;" [ngStyle]="{ background: s.checked ? (s.available ? '#ecfdf5' : '#fff1f2') : 'white', borderColor: s.checked ? (s.available ? '#16a34a' : '#ef4444') : '#d1d5db' }">
+                  <div (click)="isExpired(item.expiryDate) ? null : toggleSubitem.emit({ itemId: item.id, index: i })" [style.cursor]="isExpired(item.expiryDate) ? 'not-allowed' : 'pointer'" style="width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; border:2px solid #d1d5db;" [ngStyle]="{ background: s.checked ? (s.available ? '#ecfdf5' : '#fff1f2') : 'white', borderColor: s.checked ? (s.available ? '#16a34a' : '#ef4444') : '#d1d5db' }">
                     <mat-icon *ngIf="s.checked">{{ s.available ? 'check' : 'close' }}</mat-icon>
                   </div>
                   <div style="font-size:0.9rem; color:#374151;">{{s.size}} — <span style="color:#6b7280;">{{ s.available ? 'Available' : 'Not Available' }}</span></div>
@@ -65,6 +66,18 @@ import { Item } from '../../models/item';
         </td>
       </ng-container>
 
+      <ng-container matColumnDef="usedToday">
+        <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:12px;">Used (of Available)</th>
+        <td mat-cell *matCellDef="let item" style="padding:12px; color:#374151;">
+          <div>
+            <ng-container *ngIf="item.usedToday != null; else emptyUsed">
+              {{ item.usedToday }} of {{ item.quantity != null ? item.quantity : '-' }}
+            </ng-container>
+            <ng-template #emptyUsed>- of {{ item.quantity != null ? item.quantity : '-' }}</ng-template>
+          </div>
+        </td>
+      </ng-container>
+
       <ng-container matColumnDef="checkedDate">
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:12px;">Checked</th>
         <td mat-cell *matCellDef="let item" style="padding:12px;">
@@ -74,8 +87,8 @@ import { Item } from '../../models/item';
         </td>
       </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="['status','item','checkedDate','actions']"></tr>
-      <tr mat-row *matRowDef="let row; columns: ['status','item','checkedDate','actions'];"></tr>
+      <tr mat-header-row *matHeaderRowDef="['status','item','usedToday','checkedDate','actions']"></tr>
+      <tr mat-row *matRowDef="let row; columns: ['status','item','usedToday','checkedDate','actions'];"></tr>
     </table>
   `,
   styles: [`

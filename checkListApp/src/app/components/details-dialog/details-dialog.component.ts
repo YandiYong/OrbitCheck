@@ -27,7 +27,8 @@ import { Item } from '../../models/item';
 
     <mat-divider style="margin:12px 0"></mat-divider>
 
-    <div *ngIf="data?.items; else singleView">
+    <div style="max-height:70vh; overflow:auto; padding:8px; box-sizing:border-box;">
+      <div *ngIf="data?.items; else singleView">
       <div *ngIf="data.type === 'checklist'" style="display:flex; gap:12px; margin-bottom:12px;">
         <mat-card style="flex:1; background:#ecfdf5; border-left:4px solid #16a34a;">
           <mat-card-title>Available</mat-card-title>
