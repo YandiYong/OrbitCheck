@@ -1,6 +1,7 @@
 [
   {
     "category": "TOP",
+    "catId": 1,
     "items": [
       {
         "id": 1,
@@ -55,7 +56,7 @@
         "itemName": "ECG Machine",
         "expiryDate": "2027-01-01",
         "replacementDate": null,
-        "status": "available",
+        "status": "insufficient",
         "checked": false,
         "checkedDate": null,
         "quantity": 1,
@@ -67,7 +68,8 @@
 
   {
     "category": "AIRWAYS",
-    "items": [
+    "catId": 2,
+    "item": [
       {
         "id": 20,
         "itemName": "Endotracheal Tubes (Sizes 6.5–8.0)",
@@ -79,6 +81,37 @@
         "quantity": 10,
         "usageHistory": [],
         "usedToday": null
+      },
+      {
+        "id": 21,
+        "itemName": "Laryngeal Mask Airways (Sizes 3–5)",
+        "status": "available",
+        "checked": false,
+        "checkedDate": null,
+        "controlQuantity": 3,
+        "items": [
+          {
+            "id": 211,
+            "itemId": 21,
+            "expiryDate": "2026-03-15",
+            "replacementDate": null,
+            "present": true
+          },
+          {
+            "id": 212,
+            "itemId": 21,
+            "expiryDate": "2026-03-18",
+            "replacementDate": null,
+            "present": true
+          },
+          {
+            "id": 213,
+            "itemId": 21,
+            "expiryDate": "2026-06-16",
+            "replacementDate": null,
+            "present": false
+          }
+        ]
       },
       {
         "id": 21,
@@ -121,13 +154,14 @@
 
   {
     "category": "BREATHING",
+    "catId": 3,
     "items": [
       {
         "id": 40,
         "itemName": "Portable Oxygen Cylinder with Regulator",
         "expiryDate": "2026-11-30",
         "replacementDate": null,
-        "status": "available",
+        "status": "insufficient",
         "checked": false,
         "checkedDate": null,
         "quantity": 2,
@@ -139,7 +173,7 @@
         "itemName": "Oxygen Masks and Nasal Cannula",
         "expiryDate": "2025-12-01",
         "replacementDate": null,
-        "status": "available",
+        "status": "insufficient",
         "checked": false,
         "checkedDate": null,
         "quantity": 20,
@@ -163,13 +197,14 @@
 
   {
     "category": "CIRCULATION",
+    "catId": 4,
     "items": [
       {
         "id": 60,
         "itemName": "IV Fluids (Normal Saline)",
         "expiryDate": "2025-10-30",
         "replacementDate": null,
-        "status": "available",
+        "status": "insufficient",
         "checked": false,
         "checkedDate": null,
         "quantity": 12,
@@ -205,6 +240,7 @@
 
   {
     "category": "DRUGS",
+    "catId": 5,
     "items": [
       {
         "id": 80,
@@ -247,6 +283,7 @@
 
   {
     "category": "EXTRAS",
+    "catId": 6,
     "items": [
       {
         "id": 100,
@@ -283,7 +320,7 @@
         "itemName": "Insulin syringe x 2",
         "expiryDate": "2027-01-01",
         "replacementDate": null,
-        "status": "available",
+        "status": "insufficient",
         "checked": false,
         "checkedDate": null,
         "quantity": 10,
@@ -295,6 +332,7 @@
 
   {
     "category": "RESUSCITATION Algorithm & Documents",
+    "catId": 7,
     "items": [
       {
         "id": 120,

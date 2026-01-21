@@ -29,21 +29,6 @@ import { Item } from '../../models/item';
 
     <div style="max-height:70vh; overflow:auto; padding:8px; box-sizing:border-box;">
       <div *ngIf="data?.items; else singleView">
-      <div *ngIf="data.type === 'checklist'" style="display:flex; gap:12px; margin-bottom:12px;">
-        <mat-card style="flex:1; background:#ecfdf5; border-left:4px solid #16a34a;">
-          <mat-card-title>Available</mat-card-title>
-          <mat-card-content>
-            {{ countAvailable(data.items) }}
-          </mat-card-content>
-        </mat-card>
-        <mat-card style="flex:1; background:#fff1f2; border-left:4px solid #ef4444;">
-          <mat-card-title>Not Available</mat-card-title>
-          <mat-card-content>
-            {{ countUnavailable(data.items) }}
-          </mat-card-content>
-        </mat-card>
-      </div>
-
       <div style="display:flex; flex-direction:column; gap:10px;">
         <mat-card *ngFor="let item of data.items" style="padding:12px;">
           <mat-card-title style="font-weight:700;">{{item.name}}</mat-card-title>
@@ -63,24 +48,22 @@ import { Item } from '../../models/item';
         <mat-card-title style="padding:12px;">{{data?.name}}</mat-card-title>
         <mat-card-content style="margin-top:8px;">
           <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
+          <div style="font-size:12px;color:#6b7280">Status:</div>
+          <div style="color: {{ mapStatusToTrolley(data) === 'offTrolley' ? '#b91c1c' : '#16a34a' }};">
+          {{ mapStatusToTrolley(data) }}
+          </div>
             <div>
-              <div style="font-size:12px;color:#6b7280">Status</div>
-              <div style="font-weight:700; color:{{isExpired(data?.expiryDate) || data?.status === 'unavailable' ? '#b91c1c' : '#16a34a'}}">
-                {{ data?.status === 'unavailable' ? 'Not Available' : 'Available' }}
-              </div>
-            </div>
-            <div>
-              <div style="font-size:12px;color:#6b7280">Checked</div>
+              <div style="font-size:12px;color:#6b7280">Checked:</div>
               <div style="font-weight:700; color:#6b21a8">{{ data?.checked ? 'Yes' : 'No' }}</div>
-            </div>
+            </div>  
             <div>
-              <div style="font-size:12px;color:#6b7280">Expiry Date</div>
+              <div style="font-size:12px;color:#6b7280">Expiry Date:</div>
               <div style="font-weight:700; color:#f97316">
                 {{ data?.expiryDate }} <span *ngIf="isExpired(data?.expiryDate)" style="color:#b91c1c; font-weight:700">(EXPIRED)</span>
               </div>
             </div>
             <div>
-              <div style="font-size:12px;color:#6b7280">Last Replacement</div>
+              <div style="font-size:12px;color:#6b7280">Last Replacement:</div>
               <div style="font-weight:700; color:#16a34a">{{ data?.replacementDate || 'Never' }}</div>
             </div>
           </div>
@@ -102,10 +85,24 @@ export class DetailsDialogComponent {
   }
 
   countAvailable(items: Item[]) {
-    return items.filter(i => i.status === 'available').length;
+    return items.filter(i => i.status === 'onTrolley').length;
   }
 
   countUnavailable(items: Item[]) {
-    return items.filter(i => i.status === 'unavailable').length;
+    return items.filter(i => i.status === 'offTrolley').length;
   }
+
+  mapStatusToTrolley(item: any): 'onTrolley' | 'offTrolley' {
+  switch (item.status) {
+    case 'depleted':
+      return 'offTrolley';
+    case 'expired':
+      return 'offTrolley';
+    case 'excessive':
+    case 'insufficient':
+      return 'onTrolley';
+    default:
+      return 'onTrolley';
+  }
+} 
 }

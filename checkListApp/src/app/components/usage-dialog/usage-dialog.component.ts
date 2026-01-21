@@ -16,11 +16,9 @@ import { Item } from '../../models/item';
     <mat-dialog-content style="max-height:50vh; overflow:auto; padding:8px; box-sizing:border-box;">
       <div style="display:flex; flex-direction:column; gap:12px;">
         <div style="font-weight:700;">{{ data.item.name }}</div>
-        <div style="color:#6b7280; font-size:0.95rem;">Available: {{ data.item.quantity ?? 0 }}</div>
-
         <mat-form-field appearance="fill">
-          <mat-label>Quantity used today</mat-label>
-          <input matInput type="number" min="0" [max]="data.item.quantity ?? 0" [(ngModel)]="used" />
+          <mat-label>Available:</mat-label>
+          <input matInput type="number" min="0" [max]="(data.item.quantity ?? 0) + 5" [(ngModel)]="used" />
         </mat-form-field>
 
         <div *ngIf="error" style="color:#b91c1c">{{ error }}</div>
@@ -50,7 +48,7 @@ export class UsageDialogComponent {
       this.error = 'Enter a valid number.';
       return;
     }
-    if (this.used > q) {
+    if (this.used > q + 5) {
       this.error = `Cannot use more than available (${q}).`;
       return;
     }
