@@ -49,8 +49,8 @@ import { Item } from '../../models/item';
         <mat-card-content style="margin-top:8px;">
           <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
           <div style="font-size:12px;color:#6b7280">Status:</div>
-          <div style="color: {{ mapStatusToTrolley(data) === 'offTrolley' ? '#b91c1c' : '#16a34a' }};">
-          {{ mapStatusToTrolley(data) }}
+          <div style="color: {{ getDisplayStatus(data) === 'pending' ? '#f59e0b' : (getDisplayStatus(data) === 'expired' ? '#b91c1c' : (mapStatusToTrolley(data) === 'offTrolley' ? '#b91c1c' : '#16a34a')) }}; font-weight: 700;">
+          {{ getDisplayStatus(data) }}
           </div>
             <div>
               <div style="font-size:12px;color:#6b7280">Checked:</div>
@@ -82,6 +82,19 @@ export class DetailsDialogComponent {
   isExpired(date?: string | null) {
     if (!date) return false;
     return new Date(date) < new Date();
+  }
+
+  getDisplayStatus(item: any): string {
+    // Check if the item is expired
+    if (item?.expiryDate && this.isExpired(item.expiryDate)) {
+      return 'expired';
+    }
+    // If the item is not checked, show "pending"
+    if (!item?.checked) {
+      return 'pending';
+    }
+    // Otherwise show the actual status
+    return item.status || 'unknown';
   }
 
   countAvailable(items: Item[]) {

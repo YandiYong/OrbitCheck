@@ -6,7 +6,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { Item } from '../../models/item';
-import { MatRadioModule } from '@angular/material/radio';
 
 @Component({
   selector: 'app-item-table',
@@ -18,7 +17,7 @@ import { MatRadioModule } from '@angular/material/radio';
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:12px;">Status</th>
         <td mat-cell *matCellDef="let item" style="padding:12px;">
-          <div [style.cursor]="isExpired(item.expiryDate) ? 'not-allowed' : 'pointer'" style="display:flex; align-items:center; gap:12px;" (click)="isExpired(item.expiryDate) ? null : toggleCheckbox.emit(item)">
+        <div [style.cursor]="isExpired(item.expiryDate) ? 'not-allowed' : 'pointer'" style="display:flex; align-items:center; gap:12px;" (click)="isExpired(item.expiryDate) ? null : toggleCheckbox.emit(item)">
             <div [ngStyle]="getCheckboxStyle(item)" style="width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid #d1d5db;">
               <mat-icon *ngIf="isExpired(item.expiryDate)" style="opacity:0.5; color:#b91c1c;">block</mat-icon>
               <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'onTrolley'" style="color:#16a34a;">check_circle</mat-icon>
@@ -68,14 +67,14 @@ import { MatRadioModule } from '@angular/material/radio';
       </ng-container>
 
       <!-- Actions Column -->
-      <ng-container matColumnDef="actions">
+     <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:12px;">Actions</th>
         <td mat-cell *matCellDef="let item" style="padding:12px;">
           <div style="display:flex; gap:8px; align-items:center; background:#fff;">
             <button mat-icon-button [matMenuTriggerFor]="actionMenu" aria-label="More actions">
               <mat-icon>more_vert</mat-icon>
             </button>
-            <mat-menu #actionMenu="matMenu" class="custom-menu">
+            <mat-menu #actionMenu="matMenu" panelClass="action-menu-panel">
               <button mat-menu-item (click)="viewItem.emit(item)">
                 <mat-icon>visibility</mat-icon>
                 <span>View Details</span>
@@ -85,9 +84,9 @@ import { MatRadioModule } from '@angular/material/radio';
                 <span>Edit</span>
               </button>
             </mat-menu>
-            <button mat-flat-button color="accent" *ngIf="['insufficient', 'excessive', 'expired', 'depleted'].includes(item.status)" (click)="replaceItem.emit(item)">
-              Replace Item
-            </button>
+           <button mat-flat-button color="accent"
+        *ngIf="isExpired(item.expiryDate) || ['insufficient', 'excessive', 'depleted'].includes(item.status)"(click)="replaceItem.emit(item)"> Replace Item</button>
+ 
           </div>
         </td>
       </ng-container>
@@ -128,8 +127,17 @@ import { MatRadioModule } from '@angular/material/radio';
   `,
   styles: [`
     .full-table { width: 100%; }
-    ::ng-deep .custom-menu {
-      background-color: white;
+    ::ng-deep .action-menu-panel {
+      background-color: white !important;
+      opacity: 1 !important;
+    }
+    ::ng-deep .mat-mdc-menu-panel {
+      background-color: white !important;
+      opacity: 1 !important;
+    }
+    ::ng-deep .mat-mdc-menu-content {
+      background-color: white !important;
+      opacity: 1 !important;
     }
   `]
 })

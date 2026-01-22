@@ -1,1 +1,24 @@
 /* You can add global styles to this file, and also import other style files */
+/* Fix transparent overlays */
+.cdk-overlay-pane {
+  opacity: 1 !important;
+}
+
+.mat-mdc-menu-panel {
+  background-color: white !important;
+  opacity: 1 !important;
+}
+
+.mat-datepicker-toggle-default-icon {
+  opacity: 1 !important;
+}
+
+.mat-calendar {
+  background-color: white !important;
+  opacity: 1 !important;
+}
+
+.mat-datepicker-container {
+  background-color: white !important;
+  opacity: 1 !important;
+}

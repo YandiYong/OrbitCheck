@@ -25,8 +25,11 @@ import { StatsCardComponent } from '../stats-card/stats-card.component';
 import { ItemTableComponent } from '../item-table/item-table.component';
 import { UsageDialogComponent } from '../usage-dialog/usage-dialog.component';
 import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.component';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 
-//import{DsvSignatureFormComponent} from 'signature';
+import{DsvSignatureFormComponent,DsvStoredListComponent,SignatureApiService} from 'signature';
+import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
+
 
 @Component({
   selector: 'app-inventory-management',
@@ -55,8 +58,10 @@ import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.co
     StatsCardComponent,
     MatDatepickerModule,
     ItemTableComponent,
-    FormsModule
+    FormsModule,
+    SignatureWrapperModule,
   ],
+  providers: [SignatureApiService],
   template: `
   <mat-toolbar color="primary" style="display:flex; justify-content:space-between;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -85,7 +90,7 @@ import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.co
 
       <mat-sidenav-content style="padding:8px 16px;">
         <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px;">
-          <app-stats-card [count]="expiringSoonCount()" title="Items Expiring Soon" subtitle="Due within 7 days" [subtitleColor]="'#f97316'" borderColor="#f97316" (clicked)="openDetailsForType('expiring')"></app-stats-card>
+          <app-stats-card [count]="expiringSoonCount()" title="Expiring in the next 3 months" subtitle="Due for ordering" [subtitleColor]="'#f97316'" borderColor="#f97316" (clicked)="openDetailsForType('expiring')"></app-stats-card>
           <app-stats-card [count]="replacedThisMonthCount()" title="Replacements" subtitle="Replaced items" [subtitleColor]="'#0284c7'" borderColor="#0284c7" (clicked)="openDetailsForType('replaced')"></app-stats-card>
           <app-stats-card [count]="getChecklistStats().checked" title="Checklists Completed" borderColor="#7c3aed" (clicked)="openDetailsForType('checklist')">
             <div *ngIf="getChecklistStats().checked > 0 && getChecklistStats().unavailable === 0" style="display:flex; gap:6px; align-items:center; color:#16a34a; margin-top:6px;">
@@ -114,7 +119,9 @@ import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.co
 
           <mat-card-content>
             <app-item-table [items]="dateFilteredItems()" [categories]="categories()" (viewItem)="openDetailsForItem($event)" (editItem)="openEditDialog($event)" (replaceItem)="openReplaceDialog($event)" (toggleCheckbox)="handleCheckboxClick($event)" (toggleSubitem)="handleSubitemToggle($event)"></app-item-table>
-            <h2>No items to display</h2>
+            
+          
+            
           </mat-card-content>
         </mat-card>
       </mat-sidenav-content>
@@ -127,6 +134,7 @@ import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.co
   `]
 })
 export class InventoryManagementComponent {
+  constructor(private api: SignatureApiService) {}
   private dialog = inject(MatDialog);
   private dailyService = inject(DailyChecklistService);
 
@@ -204,15 +212,20 @@ export class InventoryManagementComponent {
   isExpired(date?: string | null) { return this.isPast(date); }
 
   expiringSoonCount = computed(() => {
-    const now = new Date();
-    const seven = new Date();
-    seven.setDate(now.getDate() + 7);
-    return this.filteredInventory().filter(item => {
-      if (!item.expiryDate) return false;
-      const d = new Date(item.expiryDate);
-      return d <= seven && d >= now;
-    }).length;
-  });
+  const now = new Date();
+  const threeMonthsFromNow = new Date();
+  threeMonthsFromNow.setMonth(now.getMonth() + 3);
+
+  return this.filteredInventory().filter(item => {
+    if (!item.expiryDate) return false;
+
+    const expiry = this.parseDate(item.expiryDate);
+    if (!expiry) return false;
+    
+    return expiry >= now && expiry <= threeMonthsFromNow;
+  }).length;
+});
+
 
   replacedThisMonthCount = computed(() => {
     const now = new Date();
@@ -239,9 +252,108 @@ export class InventoryManagementComponent {
     this.selectedCategory.set(name);
   }
 
+  private parseDate(dateString: string | null): Date | null {
+    if (!dateString) return null;
+    // Parse dd/MM/yyyy format
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month - 1, day);
+    }
+    return null;
+  }
+
+// Open details dialog for a specific item
   handleCheckboxClick(item: Item) {
     // prevent toggling if item is expired and awaiting replacement
     if (this.isExpired(item.expiryDate)) return;
+    
+    // If item is currently unchecked and has quantity > 1, show dialog with multiple instances
+    if (!item.checked && (typeof item.quantity === 'number' && item.quantity > 1)) {
+      // Generate instances based on expiryDates array or quantity
+      const expiryDates = item.expiryDates || [item.expiryDate];
+      const instances = expiryDates.map((expiry, idx) => ({
+        ...item,
+        id: item.id * 1000 + idx, // unique ID for each instance
+        expiryDate: expiry,
+        parsedDate: this.parseDate(expiry), // Add parsed date for display
+        checked: false
+      }));
+      
+      const ref = this.dialog.open(UsageDialogComponent, { 
+        width: '700px', 
+        data: { item, instances, isMultipleRequired: true } 
+      });
+      
+      ref.afterClosed().subscribe((res: any) => {
+        if (!res || typeof res.used !== 'number') return; // user cancelled or no value
+        const totalSelected = res.used; // Total count of selected items
+        const availableCount = res.availableCount || 0; // Count of items that are available
+        const notAvailableCount = res.notAvailableCount || 0; // Count of items that are not available
+        const updatedDates = res.updatedDates || {}; // Updated expiry dates for each instance
+        
+        this.inventory.update(items => items.map(i => {
+          if (i.id !== item.id) return i;
+          // Do not change quantity, only usedToday and status
+          const required = i.quantity ?? 0;
+          const history = (i.usageHistory ?? []).concat([{ date: new Date().toISOString(), used: availableCount }]);
+          const now = new Date().toISOString();
+          
+          // Check if any date was changed (indicating a replacement)
+          let hasReplacedDate = false;
+          for (let idx = 0; idx < (i.expiryDates?.length || 0); idx++) {
+            if (updatedDates[idx] && updatedDates[idx] !== i.expiryDates?.[idx]) {
+              hasReplacedDate = true;
+              break;
+            }
+          }
+          
+          // Determine status based on available count
+          let status: Item['status'];
+          if (this.isExpired(i.expiryDate)) {
+            status = 'expired';
+          } else if (notAvailableCount > 0) {
+            // If any item is not available, check how many are available
+            if (availableCount === 0) {
+              // All items are not available
+              status = 'depleted';
+            } else if (availableCount < required) {
+              // Some items are not available, but we have some available
+              status = 'insufficient';
+            } else {
+              // All required items are available despite some marked as not available
+              status = 'satisfactory';
+            }
+          } else if (availableCount === required) {
+            // All selected items are available and match required count
+            status = 'satisfactory';
+          } else if (availableCount > required && availableCount <= required + 5) {
+            status = 'excessive';
+          } else {
+            status = 'onTrolley';
+          }
+          const newChecked = true;
+          
+          // Update expiryDates array if dates were changed
+          const newItem: any = { ...i, checked: newChecked, status, checkedDate: now, usageHistory: history, usedToday: availableCount };
+          
+          if (hasReplacedDate) {
+            // Update the expiryDates array with new dates
+            const newDates = (i.expiryDates || []).map((date, idx) => updatedDates[idx] || date);
+            newItem.expiryDates = newDates;
+            newItem.expiryDate = newDates[0]; // Update primary expiryDate to first date
+            newItem.replacementDate = now; // Mark as replacement
+          }
+          
+          return newItem;
+        }));
+        this.saveTodaySnapshot();
+      });
+      return;
+    }
+    
     // We'll handle the "checking" action specially so we can collect used quantity when present.
     // If item is currently unchecked and has a numeric quantity, open a dialog to record usage.
     if (!item.checked && (typeof item.quantity === 'number')) {
@@ -382,21 +494,61 @@ export class InventoryManagementComponent {
   }
 
   openDetailsForType(type: 'expiring' | 'replaced' | 'checklist') {
-    if (type === 'expiring') {
-      const now = new Date();
-      const seven = new Date();
-      seven.setDate(now.getDate() + 7);
-      const items = this.filteredInventory().filter(i => i.expiryDate && new Date(i.expiryDate) <= seven && new Date(i.expiryDate) >= now);
-      if (items.length) this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'expiring', items } });
-    } else if (type === 'replaced') {
-      const now = new Date();
-      const items = this.filteredInventory().filter(i => i.replacementDate && new Date(i.replacementDate).getMonth() === now.getMonth() && new Date(i.replacementDate).getFullYear() === now.getFullYear());
-      if (items.length) this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'replaced', items } });
-    } else if (type === 'checklist') {
-      const items = this.filteredInventory().filter(i => i.checked);
-      if (items.length) this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'checklist', items } });
+  if (type === 'expiring') {
+    const now = new Date();
+    const threeMonthsFromNow = new Date();
+    threeMonthsFromNow.setMonth(now.getMonth() + 3);
+
+    const items = this.filteredInventory().filter(i => {
+      if (!i.expiryDate) return false;
+
+      const expiry = this.parseDate(i.expiryDate);
+      if (!expiry) return false;
+      
+      return expiry >= now && expiry <= threeMonthsFromNow;
+    });
+
+    if (items.length) {
+      this.dialog.open(DetailsDialogComponent, {
+        width: '780px',
+        data: { type: 'expiring', items }
+      });
+    }
+
+  } else if (type === 'replaced') {
+    const now = new Date();
+
+    const items = this.filteredInventory().filter(i => {
+      if (!i.replacementDate) return false;
+
+      const replaced = this.parseDate(i.replacementDate);
+      if (!replaced) return false;
+      
+      return (
+        replaced.getMonth() === now.getMonth() &&
+        replaced.getFullYear() === now.getFullYear()
+      );
+    });
+
+    if (items.length) {
+      this.dialog.open(DetailsDialogComponent, {
+        width: '780px',
+        data: { type: 'replaced', items }
+      });
+    }
+
+  } else if (type === 'checklist') {
+    const items = this.filteredInventory().filter(i => i.checked);
+
+    if (items.length) {
+      this.dialog.open(DetailsDialogComponent, {
+        width: '780px',
+        data: { type: 'checklist', items }
+      });
     }
   }
+}
+
 
   openDetailsForItem(item: Item) {
     this.dialog.open(DetailsDialogComponent, { width: '780px', data: item });
@@ -416,4 +568,5 @@ export class InventoryManagementComponent {
       this.saveTodaySnapshot();
     });
   }
+   
 }

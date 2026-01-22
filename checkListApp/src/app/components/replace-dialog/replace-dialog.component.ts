@@ -5,7 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
+import { MatNativeDateModule, MAT_DATE_LOCALE } from '@angular/material/core';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { FormsModule } from '@angular/forms';
 import { Item } from '../../models/item';
@@ -40,12 +40,12 @@ import { Item } from '../../models/item';
 
         <mat-form-field appearance="fill">
           <mat-label>New Expiry Date</mat-label>
-          <input matInput type="date" [(ngModel)]="expiryDate" />
+          <input matInput placeholder="dd/MM/yyyy" [(ngModel)]="expiryDateString" />
         </mat-form-field>
 
         <mat-form-field appearance="fill">
           <mat-label>Replacement Date</mat-label>
-          <input matInput type="date" [(ngModel)]="replacementDate" />
+          <input matInput placeholder="dd/MM/yyyy" [(ngModel)]="replacementDateString" />
         </mat-form-field>
       </div>
     </mat-dialog-content>
@@ -57,8 +57,8 @@ import { Item } from '../../models/item';
   `
 })
 export class ReplaceDialogComponent {
-  expiryDate: string | null;
-  replacementDate: string | null;
+  expiryDateString: string = '';
+  replacementDateString: string = '';
   quantity: number | null;
 
   constructor(
@@ -66,16 +66,23 @@ export class ReplaceDialogComponent {
     private dialogRef: MatDialogRef<ReplaceDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: { item: Item }
   ) {
-    this.expiryDate = data.item.expiryDate || null;
-    this.replacementDate = new Date().toISOString().split('T')[0];
+    this.expiryDateString = data.item.expiryDate || '';
+    this.replacementDateString = this.formatDate(new Date());
     this.quantity = data.item.quantity ?? 0;
   }
 
+  private formatDate(date: Date): string {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
   save() {
-    if (!this.expiryDate || !this.replacementDate) {
+    if (!this.expiryDateString || !this.replacementDateString) {
       return;
     }
-    this.dialogRef.close({ expiryDate: this.expiryDate, replacementDate: this.replacementDate, quantity: this.quantity });
+    this.dialogRef.close({ expiryDate: this.expiryDateString, replacementDate: this.replacementDateString, quantity: this.quantity });
   }
 
   close() {
