@@ -16,25 +16,24 @@ import { Item } from '../../models/item';
       <!-- Status Column -->
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:12px;">Status</th>
-        <td mat-cell *matCellDef="let item" style="padding:12px;">
-        <div [style.cursor]="isExpired(item.expiryDate) ? 'not-allowed' : 'pointer'" style="display:flex; align-items:center; gap:12px;" (click)="isExpired(item.expiryDate) ? null : toggleCheckbox.emit(item)">
+           <td mat-cell *matCellDef="let item" style="padding:12px;">
+           <div [style.cursor]="isExpired(item.expiryDate) ? 'not-allowed' : 'pointer'" style="display:flex; align-items:center; gap:12px;"
+             role="button" tabindex="0"
+             (click)="onToggle(item, $event)"
+             (mousedown)="onToggle(item, $event)"
+             (keydown.enter)="onToggle(item, $event)"
+             (keydown.space)="onToggle(item, $event)">
             <div [ngStyle]="getCheckboxStyle(item)" style="width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid #d1d5db;">
               <mat-icon *ngIf="isExpired(item.expiryDate)" style="opacity:0.5; color:#b91c1c;">block</mat-icon>
-              <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'onTrolley'" style="color:#16a34a;">check_circle</mat-icon>
+              <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'satisfactory'" style="color:#16a34a;">check_circle</mat-icon>
               <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'insufficient'" style="color:#f59e42;">warning</mat-icon>
-              <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'satisfactory'" style="color:#22c55e;">task_alt</mat-icon>
               <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'excessive'" style="color:#3b82f6;">add_circle</mat-icon>
               <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'depleted'" style="color:#b91c1c;">remove_circle</mat-icon>
-              <mat-icon *ngIf="!isExpired(item.expiryDate) && item.checked && item.status === 'offTrolley'" style="color:#ef4444;">close</mat-icon>
             </div>
             <div>
-              <div *ngIf="item.checked && item.status === 'onTrolley'" style="color:#16a34a; font-weight:700;">On Trolley</div>
-              <div *ngIf="item.checked && item.status === 'insufficient'" style="color:#f59e42; font-weight:700;">Insufficient</div>
-              <div *ngIf="item.checked && item.status === 'satisfactory'" style="color:#22c55e; font-weight:700;">Satisfactory</div>
-              <div *ngIf="item.checked && item.status === 'excessive'" style="color:#3b82f6; font-weight:700;">Excessive</div>
-              <div *ngIf="item.checked && item.status === 'depleted'" style="color:#b91c1c; font-weight:700;">Depleted</div>
-              <div *ngIf="item.checked && item.status === 'offTrolley'" style="color:#ef4444; font-weight:700;">Not Available</div>
-              <div *ngIf="isExpired(item.expiryDate)" style="color:#b91c1c; font-weight:700;">Expired</div>
+              <div *ngIf="getStatusLabel(item)" [style.color]="getStatusColor(getStatusLabel(item))" style="font-weight:700;">
+                {{ getStatusLabel(item) }}
+              </div>
             </div>
           </div>
         </td>
@@ -55,10 +54,10 @@ import { Item } from '../../models/item';
               </div>
               <div *ngIf="item.syringes" style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
                 <div *ngFor="let s of item.syringes; let i = index" style="display:flex; align-items:center; gap:8px;">
-                  <div (click)="isExpired(item.expiryDate) ? null : toggleSubitem.emit({ itemId: item.id, index: i })" [style.cursor]="isExpired(item.expiryDate) ? 'not-allowed' : 'pointer'" style="width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; border:2px solid #d1d5db;" [ngStyle]="{ background: s.checked ? (s.onTrolley ? '#ecfdf5' : '#fff1f2') : 'white', borderColor: s.checked ? (s.onTrolley ? '#16a34a' : '#ef4444') : '#d1d5db' }">
-                    <mat-icon *ngIf="s.checked">{{ s.onTrolley ? 'check' : 'close' }}</mat-icon>
+                  <div (click)="isExpired(item.expiryDate) ? null : toggleSubitem.emit({ itemId: item.id, index: i })" [style.cursor]="isExpired(item.expiryDate) ? 'not-allowed' : 'pointer'" style="width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; border:2px solid #d1d5db;" [ngStyle]="{ background: s.checked ? (s.available ? '#ecfdf5' : '#fff1f2') : 'white', borderColor: s.checked ? (s.available ? '#16a34a' : '#ef4444') : '#d1d5db' }">
+                    <mat-icon *ngIf="s.checked">{{ s.available ? 'check' : 'close' }}</mat-icon>
                   </div>
-                  <div style="font-size:0.9rem; color:#374151;">{{s.size}} — <span style="color:#6b7280;">{{ s.onTrolley ? 'On Trolley' : 'Off Trolley' }}</span></div>
+                  <div style="font-size:0.9rem; color:#374151;">{{s.size}} — <span style="color:#6b7280;">{{ s.available ? 'Satisfactory' : 'Depleted' }}</span></div>
                 </div>
               </div>
             </div>
@@ -106,7 +105,7 @@ import { Item } from '../../models/item';
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:12px;">Required</th>
         <td mat-cell *matCellDef="let item" style="padding:12px; color:#374151;">
           <div>
-            {{ item.quantity != null ? item.quantity : '-' }}
+            {{ item.controlQuantity != null ? item.controlQuantity : '-' }}
           </div>
         </td>
       </ng-container>
@@ -150,9 +149,31 @@ export class ItemTableComponent {
   @Output() toggleCheckbox = new EventEmitter<Item>();
   @Output() toggleSubitem = new EventEmitter<{ itemId: number; index: number }>();
 
+  onToggle(item: Item, event: Event) {
+    if (this.isExpired(item.expiryDate)) {
+      event.stopPropagation();
+      return;
+    }
+    event.stopPropagation();
+    this.toggleCheckbox.emit(item);
+  }
+
   isExpired(date?: string | null) {
     if (!date) return false;
-    return new Date(date) < new Date();
+    // Support both ISO (YYYY-MM-DD) and dd/MM/yyyy formats
+    if (date.indexOf('-') >= 0) {
+      const d = new Date(date);
+      return !isNaN(d.getTime()) && d < new Date();
+    }
+    const parts = date.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      const d = new Date(year, month - 1, day);
+      return d < new Date();
+    }
+    return false;
   }
 
   getCheckboxStyle(item: Item) {
@@ -161,18 +182,14 @@ export class ItemTableComponent {
     }
     if (item.checked) {
       switch (item.status) {
-        case 'onTrolley':
-          return { borderColor: '#16a34a', backgroundColor: '#ecfdf5' };
-        case 'insufficient':
-          return { borderColor: '#f59e42', backgroundColor: '#fef3c7' };
-        case 'satisfactory':
-          return { borderColor: '#22c55e', backgroundColor: '#dcfce7' };
+          case 'satisfactory':
+            return { borderColor: '#16a34a', backgroundColor: '#ecfdf5' };
+          case 'insufficient':
+            return { borderColor: '#f59e42', backgroundColor: '#fef3c7' };
         case 'excessive':
           return { borderColor: '#3b82f6', backgroundColor: '#dbeafe' };
         case 'depleted':
           return { borderColor: '#b91c1c', backgroundColor: '#fee2e2' };
-        case 'offTrolley':
-          return { borderColor: '#ef4444', backgroundColor: '#fff1f2' };
         default:
           return { borderColor: '#d1d5db', backgroundColor: 'white' };
       }
@@ -186,6 +203,36 @@ export class ItemTableComponent {
     const found = cats.find((c) => c.name === category);
     return found?.icon ?? 'inventory_2';
   }
+
+  getStatusLabel(item: Item): string {
+    if (this.isExpired(item.expiryDate)) return 'Expired';
+    // Only show a status label when the item is checked or it's expired
+    if (!item.checked && !this.isExpired(item.expiryDate)) return '';
+    const status = item.status;
+    const visibleStatuses = new Set(['depleted', 'insufficient', 'satisfactory', 'excessive', 'expired']);
+    if (!visibleStatuses.has(status)) return '';
+    switch (status) {
+      case 'depleted': return 'Depleted';
+      case 'insufficient': return 'Insufficient';
+      case 'satisfactory': return 'Satisfactory';
+      case 'excessive': return 'Excessive';
+      case 'expired': return 'Expired';
+      default: return '';
+    }
+  }
+
+  getStatusColor(label: string): string {
+    const colors: Record<string, string> = {
+      'Pending': '#f59e0b',
+      'Expired': '#b91c1c',
+      'Depleted': '#b91c1c',
+      'Insufficient': '#f59e42',
+      'Satisfactory': '#16a34a',
+      'Excessive': '#0ea5e9'
+    };
+    return colors[label] || '#6b7280';
+  }
+
 }
 
 

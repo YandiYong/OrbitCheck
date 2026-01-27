@@ -23,7 +23,7 @@ import { Item } from '../../models/item';
           <div style="font-weight:700;">{{ data.item.name }}</div>
           <mat-form-field appearance="fill">
             <mat-label>Available:</mat-label>
-            <input matInput type="number" min="0" [max]="(data.item.quantity ?? 0) + 5" [(ngModel)]="used" />
+            <input matInput type="number" min="0" [max]="(data.item.controlQuantity ?? 0) + 5" [(ngModel)]="used" />
           </mat-form-field>
 
           <div *ngIf="error" style="color:#b91c1c">{{ error }}</div>
@@ -32,17 +32,17 @@ import { Item } from '../../models/item';
         <!-- Table view for multiple required items (same item, different expiry dates) -->
         <div *ngIf="data.isMultipleRequired" style="display:flex; flex-direction:column; gap:12px;">
           <div style="font-weight:700; font-size:0.95rem; color:#374151;">
-            {{ data.item.name }} - Required: {{ data.item.quantity }} item(s)
+            {{ data.item.name }} - Required: {{ data.item.controlQuantity }} item(s)
           </div>
           
           <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
             <thead style="background:#e8f4ff; border-bottom:2px solid #0ea5e9;">
               <tr>
-                <th style="padding:8px; text-align:left; font-weight:600; width:40px;">✓</th>
+                <th style="padding:8px; text-align:left; font-weight:600; width:40px;">Checked</th>
                 <th style="padding:8px; text-align:left; font-weight:600;">Item</th>
                 <th style="padding:8px; text-align:left; font-weight:600;">Unit / Size</th>
                 <th style="padding:8px; text-align:left; font-weight:600;">Expiry Date</th>
-                <th style="padding:8px; text-align:center; font-weight:600;">Available</th>
+                <th style="padding:8px; text-align:center; font-weight:600;">Present</th>
               </tr>
             </thead>
             <tbody>
@@ -126,13 +126,11 @@ export class UsageDialogComponent {
       'OK': '#16a34a',
       'Missing': '#ef4444',
       'Expired': '#991b1b',
-      'onTrolley': '#16a34a',
-      'offTrolley': '#ef4444',
-      'insufficient': '#f97316',
       'satisfactory': '#16a34a',
+      'depleted': '#ef4444',
+      'insufficient': '#f97316',
       'excessive': '#0ea5e9',
-      'expired': '#991b1b',
-      'depleted': '#ef4444'
+      'expired': '#991b1b'
     };
     return colorMap[status] || '#6b7280';
   }
@@ -140,7 +138,7 @@ export class UsageDialogComponent {
   save() {
     if (this.data.isMultipleRequired) {
       // For multiple required items, validate selection
-      const required = this.data.item.quantity ?? 0;
+      const required = this.data.item.controlQuantity ?? 0;
       if (this.selectedIndices.size === 0) {
         this.errorMultiple = `Please select at least 1 item.`;
         return;
@@ -166,7 +164,7 @@ export class UsageDialogComponent {
       });
     } else {
       // Standard usage dialog validation
-      const q = this.data.item.quantity ?? 0;
+      const q = this.data.item.controlQuantity ?? 0;
       if (this.used == null || isNaN(this.used) || this.used < 0) {
         this.error = 'Enter a valid number.';
         return;

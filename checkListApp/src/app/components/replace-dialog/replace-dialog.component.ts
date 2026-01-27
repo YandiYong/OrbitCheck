@@ -68,7 +68,7 @@ export class ReplaceDialogComponent {
   ) {
     this.expiryDateString = data.item.expiryDate || '';
     this.replacementDateString = this.formatDate(new Date());
-    this.quantity = data.item.quantity ?? 0;
+    this.quantity = data.item.controlQuantity ?? 0;
   }
 
   private formatDate(date: Date): string {
@@ -82,7 +82,7 @@ export class ReplaceDialogComponent {
     if (!this.expiryDateString || !this.replacementDateString) {
       return;
     }
-    this.dialogRef.close({ expiryDate: this.expiryDateString, replacementDate: this.replacementDateString, quantity: this.quantity });
+    this.dialogRef.close({ expiryDate: this.expiryDateString, replacementDate: this.replacementDateString, controlQuantity: this.quantity });
   }
 
   close() {

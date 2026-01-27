@@ -24,7 +24,7 @@ import { Item } from '../../models/item';
 
         <mat-form-field appearance="fill">
           <mat-label>Expiry Date</mat-label>
-          <input matInput type="date" [(ngModel)]="expiryDate" />
+          <input matInput placeholder="dd/MM/yyyy" [(ngModel)]="expiryDateString" />
         </mat-form-field>
 
         <mat-form-field appearance="fill">
@@ -43,20 +43,34 @@ import { Item } from '../../models/item';
 export class EditItemDialogComponent {
   name: string;
   expiryDate: string | null;
+  expiryDateString: string | null;
   quantity: number | null;
 
   constructor(private dialogRef: MatDialogRef<EditItemDialogComponent>, @Inject(MAT_DIALOG_DATA) public data: { item: Item }) 
   {
     this.name = data.item.name ?? '';
     this.expiryDate = data.item.expiryDate ?? null;
-    this.quantity = data.item.quantity ?? null;
+    this.expiryDateString = this.normalizeToDdMmYyyy(this.expiryDate);
+    this.quantity = data.item.controlQuantity ?? null;
   }
 
   save() {
-    this.dialogRef.close({ name: this.name, expiryDate: this.expiryDate, quantity: this.quantity });
+    // return the dd/MM/yyyy string
+    this.dialogRef.close({ name: this.name, expiryDate: this.expiryDateString, controlQuantity: this.quantity });
   }
 
   close() {
     this.dialogRef.close();
+  }
+
+  private normalizeToDdMmYyyy(dateStr: string | null): string | null {
+    if (!dateStr) return null;
+    // if ISO format YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+    if (dateStr.indexOf('-') >= 0) {
+      const parts = dateStr.split('T')[0].split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    // assume already dd/MM/yyyy
+    return dateStr;
   }
 }

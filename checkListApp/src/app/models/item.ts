@@ -6,9 +6,9 @@ export interface Item {
   expiryDates?: string[];
   replacementDate?: string | null;
   checkedDate?: string | null;
-  status: 'onTrolley' | 'offTrolley' | 'insufficient' | 'satisfactory' | 'excessive' | 'expired' | 'depleted';
+  status: 'pending' | 'insufficient' | 'satisfactory' | 'excessive' | 'expired' | 'depleted';
   checked?: boolean;
-  quantity?: number;
+  controlQuantity?: number;
   usageHistory?: Array<{ date: string; used: number }>;
   usedToday?: number | null;
   isConsumable: boolean;

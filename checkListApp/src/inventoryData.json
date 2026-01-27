@@ -1,214 +1,129 @@
-[
-  {
-    "category": "TOP",
-    "catId": 1,
-    "items": [
-      {
-        "id": 1,
-        "itemName": "Defibrillator / AED with pads",
-        "expiryDate": "15/03/2026",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 1,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 2,
-        "itemName": "Disposable Razor, blunt scissors, small towel (ALD bag)",
-        "expiryDate": "30/06/2025",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 1,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 3,
-        "itemName": "Ambubag with reservoir, tubing and masks",
-        "expiryDate": "10/04/2026",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 1,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 4,
-        "itemName": "Manual Blood Pressure Monitor with cuffs",
-        "expiryDate": "01/01/2027",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 1,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 5,
-        "itemName": "ECG Machine",
-        "expiryDate": "01/01/2027",
-        "replacementDate": null,
-        "status": "insufficient",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 1,
-        "usageHistory": [],
-        "usedToday": null
-      }
-    ]
-  },
-
-  {
-    "category": "AIRWAYS",
-    "catId": 2,
-    "items": [
-      {
-        "id": 20,
-        "itemName": "Endotracheal Tubes (Sizes 6.5–8.0)",
-        "expiryDate": "30/09/2025",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 10,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 211,
-        "itemName": "Laryngeal Mask Airways",
-        "category": "AIRWAYS",
-        "expiryDate": "15/03/2026",
-        "expiryDates": ["15/03/2026", "18/03/2026", "16/06/2026"],
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 3,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 22,
-        "itemName": "Laryngoscope Handle and Blades",
-        "expiryDate": "01/01/2027",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 4,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 23,
-        "itemName": "Bougie and Introducers (All sizes)",
-        "expiryDate": "12/04/2026",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 8,
-        "usageHistory": [],
-        "usedToday": null
-      }
-    ]
-  },
-
-  {
-    "category": "BREATHING",
-    "catId": 3,
-    "items": [
-      {
-        "id": 40,
-        "itemName": "Portable Oxygen Cylinder with Regulator",
-        "expiryDate": "30/11/2026",
-        "replacementDate": null,
-        "status": "insufficient",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 2,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 41,
-        "itemName": "Oxygen Masks and Nasal Cannula",
-        "expiryDate": "01/12/2025",
-        "replacementDate": null,
-        "status": "insufficient",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 20,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 42,
-        "itemName": "Suction Unit and Catheters",
-        "expiryDate": "08/04/2026",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 5,
-        "usageHistory": [],
-        "usedToday": null
-      }
-    ]
-  },
-
-  {
-    "category": "CIRCULATION",
-    "catId": 4,
-    "items": [
-      {
-        "id": 60,
-        "itemName": "IV Fluids (Normal Saline)",
-        "expiryDate": "30/10/2025",
-        "replacementDate": null,
-        "status": "insufficient",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 12,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 61,
-        "itemName": "IV Cannulae (14G–24G)",
-        "expiryDate": "20/03/2026",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 30,
-        "usageHistory": [],
-        "usedToday": null
-      },
-      {
-        "id": 62,
-        "itemName": "Tourniquet and Alcohol Swabs",
-        "expiryDate": "01/06/2026",
-        "replacementDate": null,
-        "status": "available",
-        "checked": false,
-        "checkedDate": null,
-        "quantity": 25,
-        "usageHistory": [],
-        "usedToday": null
-      }
-    ]
-  },
-
+{
+  "categories": [
+    {
+      "catId": 1,
+      "category": "AIRWAYS",
+      "items": [
+        {
+          "id": 101,
+          "itemName": "Endotracheal Tube",
+          "size": "6.5",
+          "status": "satisfactory",
+          "controlQuantity": 2,
+          "checked": false,
+          "checkedDate": null,
+          "replacementDate": null,
+          "expiryDates": [
+            "2026-03-15",
+            "2026-06-16"
+          ],
+          "usedToday": null
+        },
+        {
+          "id": 102,
+          "itemName": "Endotracheal Tube",
+          "size": "7.0",
+          "status": "satisfactory",
+          "controlQuantity": 3,
+          "checked": false,
+          "checkedDate": null,
+          "replacementDate": null,
+          "expiryDates": [
+            "2025-09-30",
+            "2025-11-12",
+            "2026-01-08"
+          ],
+          "usedToday": null
+        },
+        {
+          "id": 103,
+          "itemName": "Laryngeal Mask Airway",
+          "size": "Adult",
+          "status": "pending",
+          "controlQuantity": 1,
+          "checked": false,
+          "checkedDate": null,
+          "replacementDate": null,
+          "expiryDates": [
+            "2026-03-18"
+          ],
+          "usedToday": null
+        }
+      ]
+    },
+    {
+      "catId": 2,
+      "category": "BREATHING",
+      "items": [
+        {
+          "id": 201,
+          "itemName": "Oxygen Mask",
+          "size": "Adult",
+          "status": "pending",
+          "controlQuantity": 2,
+          "checked": true,
+          "checkedDate": "2026-01-20T08:15:00",
+          "replacementDate": null,
+          "expiryDates": [
+            "2027-01-01",
+            "2027-04-10"
+          ],
+          "usedToday": null
+        },
+        {
+          "id": 202,
+          "itemName": "Bag Valve Mask",
+          "size": "Pediatric",
+          "status": "insufficient",
+          "controlQuantity": 1,
+          "checked": true,
+          "checkedDate": "2026-01-20T08:18:00",
+          "replacementDate": "2026-01-21",
+          "expiryDates": [
+            "2026-08-10"
+          ],
+          "usedToday": null
+        }
+      ]
+    },
+    {
+      "catId": 3,
+      "category": "CIRCULATION",
+      "items": [
+        {
+          "id": 301,
+          "itemName": "IV Cannula",
+          "size": "18G",
+          "status": "satisfactory",
+          "controlQuantity": 3,
+          "checked": false,
+          "checkedDate": null,
+          "replacementDate": null,
+          "expiryDates": [
+            "2027-05-12",
+            "2027-07-01",
+            "2027-09-20"
+          ],
+          "usedToday": null
+        },
+        {
+          "id": 302,
+          "itemName": "IV Cannula",
+          "size": "20G",
+          "status": "AVAILABLE",
+          "controlQuantity": 2,
+          "checked": false,
+          "checkedDate": null,
+          "replacementDate": null,
+          "expiryDates": [
+            "2027-06-20",
+            "2027-08-14"
+          ],
+          "usedToday": null
+        }
+      ]
+    }
+  ,
   {
     "category": "DRUGS",
     "catId": 5,
@@ -216,42 +131,41 @@
       {
         "id": 80,
         "itemName": "Adrenaline / Epinephrine",
-        "expiryDate": "31/07/2025",
+        "expiryDates": ["2025-07-31"],
         "replacementDate": null,
-        "status": "available",
+        "status": "satisfactory",
         "checked": false,
         "checkedDate": null,
-        "quantity": 4,
+        "controlQuantity": 4,
         "usageHistory": [],
         "usedToday": null
       },
       {
         "id": 81,
         "itemName": "Atropine",
-        "expiryDate": "15/09/2025",
+        "expiryDates": ["2025-09-15"],
         "replacementDate": null,
-        "status": "available",
+        "status": "satisfactory",
         "checked": false,
         "checkedDate": null,
-        "quantity": 4,
+        "controlQuantity": 4,
         "usageHistory": [],
         "usedToday": null
       },
       {
         "id": 82,
         "itemName": "Naloxone",
-        "expiryDate": "10/01/2026",
+        "expiryDates": ["2026-01-10"],
         "replacementDate": null,
-        "status": "available",
+        "status": "satisfactory",
         "checked": false,
         "checkedDate": null,
-        "quantity": 6,
+        "controlQuantity": 6,
         "usageHistory": [],
         "usedToday": null
       }
     ]
   },
-
   {
     "category": "EXTRAS",
     "catId": 6,
@@ -259,48 +173,41 @@
       {
         "id": 100,
         "itemName": "Syringes",
-        "expiryDate": "31/12/2026",
+        "expiryDates": ["2026-12-31"],
         "replacementDate": null,
-        "status": "available",
+        "status": "satisfactory",
         "checked": false,
         "checkedDate": null,
-        "quantity": 20,
+        "controlQuantity": 20,
         "usageHistory": [],
-        "usedToday": null,
-        "syringes": [
-          { "size": "20ml x 5", "available": true, "checked": false },
-          { "size": "10ml x 5", "available": true, "checked": false },
-          { "size": "5ml x 5", "available": true, "checked": false },
-          { "size": "3ml/2ml x 5", "available": true, "checked": false }
-        ]
+        "usedToday": null
       },
       {
         "id": 101,
         "itemName": "Gloves Latex Free (Medium & Large)",
-        "expiryDate": "30/11/2025",
+        "expiryDates": ["2025-11-30"],
         "replacementDate": null,
-        "status": "available",
+        "status": "AVAILABLE",
         "checked": false,
         "checkedDate": null,
-        "quantity": 100,
+        "controlQuantity": 100,
         "usageHistory": [],
         "usedToday": null
       },
       {
         "id": 102,
         "itemName": "Insulin syringe x 2",
-        "expiryDate": "01/01/2027",
+        "expiryDates": ["2027-01-01"],
         "replacementDate": null,
         "status": "insufficient",
         "checked": false,
         "checkedDate": null,
-        "quantity": 10,
+        "controlQuantity": 10,
         "usageHistory": [],
         "usedToday": null
       }
     ]
   },
-
   {
     "category": "RESUSCITATION Algorithm & Documents",
     "catId": 7,
@@ -308,27 +215,28 @@
       {
         "id": 120,
         "itemName": "Advanced Life Support Algorithm",
-        "expiryDate": "01/01/2027",
+        "expiryDates": ["2027-01-01"],
         "replacementDate": null,
-        "status": "available",
+        "status": "satisfactory",
         "checked": false,
         "checkedDate": null,
-        "quantity": 1,
+        "controlQuantity": 1,
         "usageHistory": [],
         "usedToday": null
       },
       {
         "id": 121,
         "itemName": "Anaphylaxis Algorithm",
-        "expiryDate": "01/01/2027",
+        "expiryDates": ["2027-01-01"],
         "replacementDate": null,
-        "status": "available",
+        "status": "satisfactory",
         "checked": false,
         "checkedDate": null,
-        "quantity": 1,
+        "controlQuantity": 1,
         "usageHistory": [],
         "usedToday": null
       }
     ]
   }
-]
+  ]
+}

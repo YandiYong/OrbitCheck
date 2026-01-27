@@ -49,8 +49,8 @@ import { Item } from '../../models/item';
         <mat-card-content style="margin-top:8px;">
           <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
           <div style="font-size:12px;color:#6b7280">Status:</div>
-          <div style="color: {{ getDisplayStatus(data) === 'pending' ? '#f59e0b' : (getDisplayStatus(data) === 'expired' ? '#b91c1c' : (mapStatusToTrolley(data) === 'offTrolley' ? '#b91c1c' : '#16a34a')) }}; font-weight: 700;">
-          {{ getDisplayStatus(data) }}
+          <div [style.color]="getStatusColor(data)" style="font-weight: 700;">
+            {{ getDisplayStatus(data) }}
           </div>
             <div>
               <div style="font-size:12px;color:#6b7280">Checked:</div>
@@ -98,24 +98,23 @@ export class DetailsDialogComponent {
   }
 
   countAvailable(items: Item[]) {
-    return items.filter(i => i.status === 'onTrolley').length;
+    return items.filter(i => !['depleted', 'expired', 'pending'].includes(i.status)).length;
   }
 
   countUnavailable(items: Item[]) {
-    return items.filter(i => i.status === 'offTrolley').length;
+    return items.filter(i => ['depleted', 'expired', 'pending'].includes(i.status)).length;
   }
 
-  mapStatusToTrolley(item: any): 'onTrolley' | 'offTrolley' {
-  switch (item.status) {
-    case 'depleted':
-      return 'offTrolley';
-    case 'expired':
-      return 'offTrolley';
-    case 'excessive':
-    case 'insufficient':
-      return 'onTrolley';
-    default:
-      return 'onTrolley';
+  getStatusColor(item: any): string {
+    const s = this.getDisplayStatus(item);
+    const map: Record<string, string> = {
+      'pending': '#f59e0b',
+      'expired': '#b91c1c',
+      'depleted': '#b91c1c',
+      'insufficient': '#f59e42',
+      'satisfactory': '#16a34a',
+      'excessive': '#0ea5e9'
+    };
+    return map[s] || '#6b7280';
   }
-} 
 }

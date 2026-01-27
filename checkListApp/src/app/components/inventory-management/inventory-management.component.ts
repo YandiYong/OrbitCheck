@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,7 +17,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
 import { Item } from '../../models/item';
 import { DailyChecklistService } from '../../services/daily-checklist.service';
-import inventoryData from '../../../inventoryData.json';
+import { environment } from '../../../environments/environment';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
 import { DetailsDialogComponent } from '../details-dialog/details-dialog.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
@@ -60,6 +60,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     ItemTableComponent,
     FormsModule,
     SignatureWrapperModule,
+    HttpClientModule,
   ],
   providers: [SignatureApiService],
   template: `
@@ -133,8 +134,10 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     .full-table { width:100%; }
   `]
 })
-export class InventoryManagementComponent {
+export class InventoryManagementComponent implements OnInit {
   constructor(private api: SignatureApiService) {}
+  private http = inject(HttpClient);
+  private readonly inventoryUrl = environment.inventoryApiUrl;
   private dialog = inject(MatDialog);
   private dailyService = inject(DailyChecklistService);
 
@@ -166,11 +169,119 @@ export class InventoryManagementComponent {
     });
   });
 
-  inventory = signal<Item[]>((inventoryData as any[]).flatMap(cat => (cat.items || []).map((it: any) => ({
-    ...it,
-    name: it.itemName ?? it.name,
-    category: it.category ?? cat.category
-  }))) as Item[]);
+  // initially empty; populated from API in ngOnInit
+  inventory = signal<Item[]>([]);
+
+  ngOnInit(): void {
+    this.loadInventory();
+  }
+
+  private loadInventory() {
+    this.http.get<any>(this.inventoryUrl).subscribe({
+      next: raw => {
+        console.debug('Inventory API response:', raw);
+        // Accept either { categories: [...] } or an array of categories
+        // Also accept a flat array of items (common API shape) and wrap into a category
+        let cats: any[] = [];
+        if (Array.isArray(raw)) {
+          // raw is an array — could be categories or a flat items list
+          if (raw.length > 0 && (raw[0].itemName || raw[0].name || raw[0].id)) {
+            // looks like a flat items array
+            cats = [{ category: 'API Items', items: raw }];
+          } else {
+            cats = raw;
+          }
+        } else {
+          cats = raw.categories || [];
+        }
+
+        // helper: choose earliest/valid expiry from multiple possible fields
+        const choosePrimaryExpiry = (it: any): string | null => {
+          const candidates: string[] = [];
+          if (Array.isArray(it.expiryDates) && it.expiryDates.length) candidates.push(...it.expiryDates.filter(Boolean));
+          const otherKeys = ['expiryDate', 'expiry', 'expirationDate', 'expiry_date', 'expiration_date', 'expires'];
+          for (const k of otherKeys) if (it[k]) candidates.push(it[k]);
+          // also gather expiry dates from variants (e.g., different sizes)
+          if (Array.isArray(it.variants)) {
+            for (const v of it.variants) {
+              if (Array.isArray(v.expiryDates) && v.expiryDates.length) candidates.push(...v.expiryDates.filter(Boolean));
+              if (v.expiryDate) candidates.push(v.expiryDate);
+            }
+          }
+          if (candidates.length === 0) return null;
+
+          // parse candidates into timestamps, prefer valid dates
+          const parsed = candidates
+            .map(s => ({ raw: s, t: Date.parse(String(s)) }))
+            .filter(x => !isNaN(x.t));
+          if (parsed.length > 0) {
+            parsed.sort((a, b) => a.t - b.t);
+            return parsed[0].raw;
+          }
+          // fallback to first candidate if none parse as Date
+          return candidates[0] ?? null;
+        };
+
+        const pad = (n: number) => (n < 10 ? '0' + n : String(n));
+
+        const items = (cats as unknown as any[]).flatMap(cat => (cat.items || []).map((it: any) => {
+          const primaryExpiry = choosePrimaryExpiry(it);
+
+          let expiryDateFormatted: string | null = null;
+          if (primaryExpiry) {
+            const parsed = new Date(primaryExpiry);
+            if (!isNaN(parsed.getTime())) {
+              expiryDateFormatted = `${pad(parsed.getDate())}/${pad(parsed.getMonth() + 1)}/${parsed.getFullYear()}`;
+            } else if (String(primaryExpiry).indexOf('-') >= 0) {
+              const p = String(primaryExpiry).split('-');
+              if (p.length === 3) expiryDateFormatted = `${p[2]}/${p[1]}/${p[0]}`;
+              else expiryDateFormatted = String(primaryExpiry);
+            } else {
+              expiryDateFormatted = String(primaryExpiry);
+            }
+          }
+
+          const ctrlQty = it.controlQuantity ?? it.quantity ?? 1;
+          // normalize variants expiry dates to dd/MM/yyyy for consistent display
+          let normalizedVariants: any[] | undefined = undefined;
+          if (Array.isArray(it.variants)) {
+            normalizedVariants = (it.variants as any[]).map(v => {
+              const dates = (Array.isArray(v.expiryDates) ? v.expiryDates : (v.expiryDate ? [v.expiryDate] : [])).filter(Boolean).map((d: any) => {
+                const parsed = new Date(d);
+                if (!isNaN(parsed.getTime())) return `${pad(parsed.getDate())}/${pad(parsed.getMonth() + 1)}/${parsed.getFullYear()}`;
+                if (String(d).indexOf('-') >= 0) {
+                  const p = String(d).split('-');
+                  if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+                }
+                return String(d);
+              });
+              return { ...v, expiryDates: dates, expiryDate: dates[0] ?? null };
+            });
+          }
+          let rawStatus = it.status ?? '';
+          let normalizedStatus = String(rawStatus).toLowerCase();
+          if (normalizedStatus === 'available' || normalizedStatus === 'unchecked' || normalizedStatus === 'available') {
+            normalizedStatus = 'pending';
+          }
+
+          return {
+            ...it,
+            name: it.itemName ?? it.name,
+            category: it.category ?? cat.category,
+            expiryDate: expiryDateFormatted,
+            controlQuantity: ctrlQty,
+            status: normalizedStatus,
+            ...(normalizedVariants ? { variants: normalizedVariants } : {})
+          } as any;
+        }));
+
+        this.inventory.set(items as Item[]);
+      },
+      error: err => {
+        console.error('Failed to load inventory from API', err);
+      }
+    });
+  }
 
   selectedCategory = signal<string>('All Items');
   selectedItem = signal<Item | { type: string; items: Item[] } | null>(null);
@@ -231,7 +342,8 @@ export class InventoryManagementComponent {
     const now = new Date();
     return this.filteredInventory().filter(item => {
       if (!item.replacementDate) return false;
-      const r = new Date(item.replacementDate);
+      const r = this.parseDate(item.replacementDate);
+      if (!r) return false;
       return r.getMonth() === now.getMonth() && r.getFullYear() === now.getFullYear();
     }).length;
   });
@@ -239,7 +351,7 @@ export class InventoryManagementComponent {
   getChecklistStats = computed(() => {
     const inv = this.filteredInventory();
     const checked = inv.filter(i => i.checked).length;
-    const unavailable = inv.filter(i => i.checked && i.status === 'offTrolley').length;
+    const unavailable = inv.filter(i => i.checked && i.status === 'depleted').length;
     return { checked, unavailable, total: inv.length };
   });
 
@@ -271,16 +383,42 @@ export class InventoryManagementComponent {
     if (this.isExpired(item.expiryDate)) return;
     
     // If item is currently unchecked and has quantity > 1, show dialog with multiple instances
-    if (!item.checked && (typeof item.quantity === 'number' && item.quantity > 1)) {
-      // Generate instances based on expiryDates array or quantity
-      const expiryDates = item.expiryDates || [item.expiryDate];
-      const instances = expiryDates.map((expiry, idx) => ({
-        ...item,
-        id: item.id * 1000 + idx, // unique ID for each instance
-        expiryDate: expiry,
-        parsedDate: this.parseDate(expiry), // Add parsed date for display
-        checked: false
-      }));
+    if (!item.checked && (typeof item.controlQuantity === 'number' && item.controlQuantity > 1)) {
+      // Generate instances for multiple-selection dialog.
+      // If the item has `variants`, show each variant expiry as an instance so user can pick sizes.
+      let instances: any[] = [];
+      if (Array.isArray((item as any).variants) && (item as any).variants.length) {
+        for (let vi = 0; vi < (item as any).variants.length; vi++) {
+          const v = (item as any).variants[vi];
+          const vDates = Array.isArray(v.expiryDates) && v.expiryDates.length ? v.expiryDates : (v.expiryDate ? [v.expiryDate] : [null]);
+          for (let di = 0; di < vDates.length; di++) {
+            const expiry = vDates[di];
+            instances.push({
+              ...item,
+              id: item.id * 1000 + vi * 10 + di,
+              expiryDate: expiry,
+              parsedDate: this.parseDate(expiry),
+              checked: false,
+              // metadata to map back to variant
+              _variantIndex: vi,
+              _variantDateIndex: di,
+              // show unit/size in the dialog's second column
+              name: item.name,
+              category: v.size ?? (v.unit ?? ''),
+            });
+          }
+        }
+      } else {
+        // Fallback: use top-level expiryDates or expiryDate
+        const expiryDates = (item as any).expiryDates || [(item as any).expiryDate];
+        instances = expiryDates.map((expiry: any, idx: number) => ({
+          ...item,
+          id: item.id * 1000 + idx, // unique ID for each instance
+          expiryDate: expiry,
+          parsedDate: this.parseDate(expiry), // Add parsed date for display
+          checked: false
+        }));
+      }
       
       const ref = this.dialog.open(UsageDialogComponent, { 
         width: '700px', 
@@ -292,21 +430,32 @@ export class InventoryManagementComponent {
         const totalSelected = res.used; // Total count of selected items
         const availableCount = res.availableCount || 0; // Count of items that are available
         const notAvailableCount = res.notAvailableCount || 0; // Count of items that are not available
-        const updatedDates = res.updatedDates || {}; // Updated expiry dates for each instance
+        const updatedDates = res.updatedDates || {}; // Updated expiry dates for each instance (indexed by instance array)
         
         this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
           // Do not change quantity, only usedToday and status
-          const required = i.quantity ?? 0;
+          const required = i.controlQuantity ?? 0;
           const history = (i.usageHistory ?? []).concat([{ date: new Date().toISOString(), used: availableCount }]);
           const now = new Date().toISOString();
           
           // Check if any date was changed (indicating a replacement)
           let hasReplacedDate = false;
-          for (let idx = 0; idx < (i.expiryDates?.length || 0); idx++) {
-            if (updatedDates[idx] && updatedDates[idx] !== i.expiryDates?.[idx]) {
-              hasReplacedDate = true;
-              break;
+          // If item uses variants, updatedDates map will reference instance indexes with metadata
+          if (Array.isArray((i as any).variants) && (i as any).variants.length) {
+            for (let k = 0; k < instances.length; k++) {
+              const inst = instances[k];
+              if (inst && inst._variantIndex != null && updatedDates[k] && updatedDates[k] !== ((i as any).variants?.[inst._variantIndex]?.expiryDates?.[inst._variantDateIndex] ?? null)) {
+                hasReplacedDate = true;
+                break;
+              }
+            }
+          } else {
+            for (let idx = 0; idx < ((i as any).expiryDates?.length || 0); idx++) {
+              if (updatedDates[idx] && updatedDates[idx] !== (i as any).expiryDates?.[idx]) {
+                hasReplacedDate = true;
+                break;
+              }
             }
           }
           
@@ -331,20 +480,41 @@ export class InventoryManagementComponent {
             status = 'satisfactory';
           } else if (availableCount > required && availableCount <= required + 5) {
             status = 'excessive';
-          } else {
-            status = 'onTrolley';
-          }
+            } else {
+              status = 'satisfactory';
+            }
           const newChecked = true;
           
           // Update expiryDates array if dates were changed
           const newItem: any = { ...i, checked: newChecked, status, checkedDate: now, usageHistory: history, usedToday: availableCount };
           
           if (hasReplacedDate) {
-            // Update the expiryDates array with new dates
-            const newDates = (i.expiryDates || []).map((date, idx) => updatedDates[idx] || date);
-            newItem.expiryDates = newDates;
-            newItem.expiryDate = newDates[0]; // Update primary expiryDate to first date
-            newItem.replacementDate = now; // Mark as replacement
+            if (Array.isArray((i as any).variants) && (i as any).variants.length) {
+              // Apply updates into variant expiry arrays
+              const newVariants = (i as any).variants.map((v: any) => ({ ...v }));
+              for (let k = 0; k < instances.length; k++) {
+                const inst = instances[k];
+                if (!inst || inst._variantIndex == null) continue;
+                const vi = inst._variantIndex;
+                const di = inst._variantDateIndex ?? 0;
+                const newDate = updatedDates[k];
+                if (newDate) {
+                  newVariants[vi].expiryDates = Array.isArray(newVariants[vi].expiryDates) ? [...newVariants[vi].expiryDates] : (newVariants[vi].expiryDates ? [newVariants[vi].expiryDates] : []);
+                  newVariants[vi].expiryDates[di] = newDate;
+                }
+              }
+              newItem.variants = newVariants;
+              // update primary expiryDate to earliest variant expiry (if any)
+              const allDates = newVariants.flatMap((v: any) => v.expiryDates || []);
+              newItem.expiryDate = allDates.length ? allDates.sort()[0] : newItem.expiryDate;
+              newItem.replacementDate = now;
+            } else {
+              // Update the expiryDates array with new dates
+              const newDates = ((i as any).expiryDates || []).map((date: any, idx: number) => updatedDates[idx] || date);
+              newItem.expiryDates = newDates;
+              newItem.expiryDate = newDates[0]; // Update primary expiryDate to first date
+              newItem.replacementDate = now; // Mark as replacement
+            }
           }
           
           return newItem;
@@ -356,7 +526,7 @@ export class InventoryManagementComponent {
     
     // We'll handle the "checking" action specially so we can collect used quantity when present.
     // If item is currently unchecked and has a numeric quantity, open a dialog to record usage.
-    if (!item.checked && (typeof item.quantity === 'number')) {
+    if (!item.checked && (typeof item.controlQuantity === 'number')) {
       const ref = this.dialog.open(UsageDialogComponent, { width: '420px', data: { item } });
       ref.afterClosed().subscribe((res: any) => {
         if (!res || typeof res.used !== 'number') return; // user cancelled or no value
@@ -364,7 +534,7 @@ export class InventoryManagementComponent {
         this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
           // Do not change quantity, only usedToday and status
-          const required = i.quantity ?? 0;
+          const required = i.controlQuantity ?? 0;
           used = Math.max(0, used); // ensure non-negative
           const history = (i.usageHistory ?? []).concat([{ date: new Date().toISOString(), used }]);
           const now = new Date().toISOString();
@@ -377,9 +547,9 @@ export class InventoryManagementComponent {
             else if (used < required) status = 'insufficient';
             else if (used === required) status = 'satisfactory';
             else if (used > required && used <= required + 5) status = 'excessive';
-            else status = 'onTrolley';
+            else status = 'satisfactory';
           } else {
-            status = 'onTrolley';
+            status = 'satisfactory';
           }
           const newChecked = true;
           return { ...i, checked: newChecked, status, checkedDate: now, usageHistory: history, usedToday: used };
@@ -397,17 +567,17 @@ export class InventoryManagementComponent {
         // if item has subitems, mark them checked too
         if ((i as any).syringes && Array.isArray((i as any).syringes)) {
           const syr = (i as any).syringes.map((s: any) => ({ ...s, checked: true }));
-          return { ...i, checked: true, status: 'onTrolley', checkedDate: new Date().toISOString(), syringes: syr };
+          return { ...i, checked: true, status: 'satisfactory', checkedDate: new Date().toISOString(), syringes: syr };
         }
-        return { ...i, checked: true, status: 'onTrolley', checkedDate: new Date().toISOString() };
+        return { ...i, checked: true, status: 'satisfactory', checkedDate: new Date().toISOString() };
       } else {
         // second/next click: uncheck — clear checkedDate so history column is cleared
         // if item has subitems, clear their checked flags too
         if ((i as any).syringes && Array.isArray((i as any).syringes)) {
           const syr = (i as any).syringes.map((s: any) => ({ ...s, checked: false }));
-          return { ...i, checked: false, status: 'onTrolley', checkedDate: null, syringes: syr };
+          return { ...i, checked: false, status: 'satisfactory', checkedDate: null, syringes: syr };
         }
-        return { ...i, checked: false, status: 'onTrolley', checkedDate: null };
+        return { ...i, checked: false, status: 'satisfactory', checkedDate: null };
       }
     }));
     // persist today's snapshot after change
@@ -433,9 +603,9 @@ export class InventoryManagementComponent {
       copy.checked = true;
       copy.checkedDate = new Date().toISOString();
 
-      // If any subitem is not available, parent becomes 'unavailable'
+      // If any subitem is not available, parent becomes 'depleted'
       const anyNotAvailable = syr.some((s: any) => s.available === false);
-      copy.status = anyNotAvailable ? 'unavailable' : 'available';
+      copy.status = anyNotAvailable ? 'depleted' : 'satisfactory';
 
       return copy;
     }));
@@ -444,7 +614,7 @@ export class InventoryManagementComponent {
   }
 
   getCheckboxStyle(item: Item) {
-    if (item.checked && item.status === 'offTrolley') {
+    if (item.checked && item.status === 'depleted') {
       return { borderColor: '#ef4444', backgroundColor: '#fff1f2' };
     } else if (item.checked) {
       return { borderColor: '#16a34a', backgroundColor: '#ecfdf5' };
@@ -457,15 +627,15 @@ export class InventoryManagementComponent {
     const ref = this.dialog.open(ReplaceDialogComponent, { width: '420px', data: { item } });
     ref.afterClosed().subscribe((result: any) => {
       if (result && result.expiryDate && result.replacementDate) {
-        const qty = typeof result.quantity === 'number' ? result.quantity : (item.quantity ?? 0);
+        const ctrlQty = typeof result.controlQuantity === 'number' ? result.controlQuantity : (item.controlQuantity ?? 0);
         this.inventory.update(items => items.map(i => i.id === item.id ? {
           ...i,
           expiryDate: result.expiryDate,
           replacementDate: result.replacementDate,
-          status: qty > 0 ? 'onTrolley' : 'offTrolley',
+          status: ctrlQty > 0 ? 'satisfactory' : 'depleted',
           checked: false,
           checkedDate: null,
-          quantity: qty,
+          controlQuantity: ctrlQty,
           usedToday: null
         } : i));
         // persist after replacement
@@ -484,13 +654,18 @@ export class InventoryManagementComponent {
   previousDayUnavailableChecked() {
     const prev = this.dailyService.getPreviousSnapshot();
     if (!prev) return [];
-    return (prev as any[]).filter((p: any) => p.checked && p.status === 'offTrolley');
+    return (prev as any[]).filter((p: any) => p.checked && p.status === 'depleted');
   }
 
   // expired items needing replacement
   expiredNeedsReplacement() {
     const now = new Date();
-    return this.filteredInventory().filter(i => i.expiryDate && new Date(i.expiryDate) < now && !i.replacementDate);
+    return this.filteredInventory().filter(i => {
+      if (!i.expiryDate) return false;
+      const e = this.parseDate(i.expiryDate);
+      if (!e) return false;
+      return e < now && !i.replacementDate;
+    });
   }
 
   openDetailsForType(type: 'expiring' | 'replaced' | 'checklist') {
@@ -558,12 +733,12 @@ export class InventoryManagementComponent {
     const ref = this.dialog.open(EditItemDialogComponent, { width: '520px', data: { item } });
     ref.afterClosed().subscribe((res: any) => {
       if (!res) return;
-      const { name, expiryDate, quantity } = res;
+      const { name, expiryDate, controlQuantity } = res;
       this.inventory.update(items => items.map(i => i.id === item.id ? {
         ...i,
         name: typeof name === 'string' ? name : i.name,
         expiryDate: expiryDate ?? i.expiryDate,
-        quantity: typeof quantity === 'number' ? quantity : i.quantity
+        controlQuantity: typeof controlQuantity === 'number' ? controlQuantity : i.controlQuantity
       } : i));
       this.saveTodaySnapshot();
     });

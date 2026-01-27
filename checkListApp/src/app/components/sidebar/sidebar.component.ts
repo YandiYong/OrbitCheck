@@ -113,7 +113,28 @@ import { DetailsDialogComponent } from '../details-dialog/details-dialog.compone
 export class SidebarComponent {
       get expiredItems() {
         const now = new Date();
-        return this.items.filter(i => i.expiryDate && new Date(i.expiryDate) < now);
+        return this.items.filter(i => {
+          if (!i.expiryDate) return false;
+          const d = this.parseExpiry(i.expiryDate);
+          return d ? d < now : false;
+        });
+      }
+
+      private parseExpiry(dateString: string): Date | null {
+        if (!dateString) return null;
+        if (dateString.indexOf('-') >= 0) {
+          const d = new Date(dateString);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10);
+          const year = parseInt(parts[2], 10);
+          const d = new Date(year, month - 1, day);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        return null;
       }
 
       openExpired() {
