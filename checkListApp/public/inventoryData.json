@@ -257,7 +257,7 @@
           "items": [
             {
               "id": 1,
-              "description": "5ml",
+              "description": "15ml",
               "replacementDate": null,
               "expiryDate": "31/12/2026",
               "checkedDate": null
@@ -273,7 +273,7 @@
               "id": 3,
               "description": "10ml",
               "replacementDate": null,
-              "expiryDate": "31/12/2026",
+              "expiryDate": "31/12/2027",
               "checkedDate": null
             }
           ]
@@ -290,7 +290,7 @@
               "id": 1,
               "description": "Medium & Large",
               "replacementDate": null,
-              "expiryDate": "30/11/2025",
+              "expiryDate": "30/11/2026",
               "checkedDate": null
             }
           ]

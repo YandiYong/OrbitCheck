@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
-import { Item } from '../../models/item';
+// runtime items match inventory JSON; use `any` in component inputs
 import { CommonModule } from '@angular/common';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
@@ -149,16 +149,16 @@ export class SidebarComponent {
     }
   @Input() categories: Array<{ name: string; icon: string; count: number }> = [];
   @Input() selectedCategory = 'All Items';
-  @Input() items: Item[] = [];
+  @Input() items: any[] = [];
     get depletedItems() {
-      return this.items.filter(i => i.status === 'depleted');
-    }
-    get excessiveItems() {
-      return this.items.filter(i => i.status === 'excessive');
-    }
-    get insufficientItems() {
-      return this.items.filter(i => i.status === 'insufficient');
-    }
+        return this.items.filter((i: any) => i.status === 'depleted');
+      }
+      get excessiveItems() {
+        return this.items.filter((i: any) => i.status === 'excessive');
+      }
+      get insufficientItems() {
+        return this.items.filter((i: any) => i.status === 'insufficient');
+      }
 
     openDepleted() {
       if (!this.depletedItems.length) return;
@@ -172,7 +172,7 @@ export class SidebarComponent {
       if (!this.insufficientItems.length) return;
       this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'insufficient', items: this.insufficientItems } });
     }
-  @Input() expiredNeedsReplacement: Item[] = [];
+  @Input() expiredNeedsReplacement: any[] = [];
   @Output() selectCategory = new EventEmitter<string>();
 
   private dialog = inject(MatDialog);

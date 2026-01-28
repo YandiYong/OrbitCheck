@@ -1,5 +1,6 @@
 export const environment = {
   production: false,
   // development API endpoint - replace with your local/dev API
-  inventoryApiUrl: 'https://localhost:7053/api/categories'
+  // load local JSON by default during development
+  inventoryApiUrl: 'inventoryData.json'
 };

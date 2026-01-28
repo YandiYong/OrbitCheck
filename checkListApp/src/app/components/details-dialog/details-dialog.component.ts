@@ -4,7 +4,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
-import { Item } from '../../models/item';
+// Use runtime `any` for items to match inventory JSON shape
 
 @Component({
   selector: 'app-details-dialog',
@@ -34,9 +34,9 @@ import { Item } from '../../models/item';
           <mat-card-title style="font-weight:700;">{{item.name}}</mat-card-title>
           <mat-card-subtitle>{{item.category}}</mat-card-subtitle>
           <mat-card-content style="margin-top:8px; color:#374151;">
-            <div>Expiry: {{item.expiryDate}} <span *ngIf="isExpired(item.expiryDate)" style="color:#b91c1c">(EXPIRED)</span></div>
+            <div>Expiry: {{item.expiryDate}} <span *ngIf="isExpired(item.expiryDate ?? null)" style="color:#b91c1c">(EXPIRED)</span></div>
             <div *ngIf="item.replacementDate">Replaced: {{item.replacementDate}}</div>
-            <div>Status: <strong>{{item.status}}</strong></div>
+            <div>Status: <strong>{{ getDisplayStatus(item) }}</strong></div>
           </mat-card-content>
         </mat-card>
       </div>
@@ -59,7 +59,7 @@ import { Item } from '../../models/item';
             <div>
               <div style="font-size:12px;color:#6b7280">Expiry Date:</div>
               <div style="font-weight:700; color:#f97316">
-                {{ data?.expiryDate }} <span *ngIf="isExpired(data?.expiryDate)" style="color:#b91c1c; font-weight:700">(EXPIRED)</span>
+                {{ data?.expiryDate }} <span *ngIf="isExpired(data?.expiryDate ?? null)" style="color:#b91c1c; font-weight:700">(EXPIRED)</span>
               </div>
             </div>
             <div>
@@ -79,7 +79,7 @@ import { Item } from '../../models/item';
 export class DetailsDialogComponent {
   constructor(@Inject(MAT_DIALOG_DATA) public data: any) {}
 
-  isExpired(date?: string | null) {
+  isExpired(date: string | null | undefined): boolean {
     if (!date) return false;
     return new Date(date) < new Date();
   }
@@ -97,12 +97,18 @@ export class DetailsDialogComponent {
     return item.status || 'unknown';
   }
 
-  countAvailable(items: Item[]) {
-    return items.filter(i => !['depleted', 'expired', 'pending'].includes(i.status)).length;
+  countAvailable(items: any[]) {
+    return items.filter(i => {
+      const s = this.getDisplayStatus(i as any);
+      return !['depleted', 'expired', 'pending'].includes(s);
+    }).length;
   }
 
-  countUnavailable(items: Item[]) {
-    return items.filter(i => ['depleted', 'expired', 'pending'].includes(i.status)).length;
+  countUnavailable(items: any[]) {
+    return items.filter(i => {
+      const s = this.getDisplayStatus(i as any);
+      return ['depleted', 'expired', 'pending'].includes(s);
+    }).length;
   }
 
   getStatusColor(item: any): string {

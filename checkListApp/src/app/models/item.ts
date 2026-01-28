@@ -1,15 +1,30 @@
-export interface Item {
+export interface CheckList{
+    Lists: List[];
+}
+
+export interface List{
+  categoryId: number;
+  categoryName: string;
+   items: DisplayItem[]; 
+}
+
+export interface DisplayItem {
   id: number;
   name: string;
-  category: string;
-  expiryDate: string | null;
-  expiryDates?: string[];
-  replacementDate?: string | null;
-  checkedDate?: string | null;
   status: 'pending' | 'insufficient' | 'satisfactory' | 'excessive' | 'expired' | 'depleted';
   checked?: boolean;
   controlQuantity?: number;
-  usageHistory?: Array<{ date: string; used: number }>;
-  usedToday?: number | null;
   isConsumable: boolean;
+  items: Item[];
+  
+}
+export interface Item{
+
+    id: number ;
+    expiryDate:Date;
+    description: string;
+    replacementDate?: Date;
+     checkedDate?: Date;
+    
+  
 }

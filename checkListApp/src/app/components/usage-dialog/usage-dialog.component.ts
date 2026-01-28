@@ -96,7 +96,7 @@ export class UsageDialogComponent {
 
   constructor(
     private dialogRef: MatDialogRef<UsageDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { item: Item; instances?: Item[]; isMultipleRequired?: boolean }
+    @Inject(MAT_DIALOG_DATA) public data: { item: any; instances?: any[]; isMultipleRequired?: boolean }
   ) {
     this.used = 0;
     // Initialize all items as available by default and copy their expiry dates

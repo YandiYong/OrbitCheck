@@ -46,7 +46,7 @@ export class EditItemDialogComponent {
   expiryDateString: string | null;
   quantity: number | null;
 
-  constructor(private dialogRef: MatDialogRef<EditItemDialogComponent>, @Inject(MAT_DIALOG_DATA) public data: { item: Item }) 
+  constructor(private dialogRef: MatDialogRef<EditItemDialogComponent>, @Inject(MAT_DIALOG_DATA) public data: { item: any }) 
   {
     this.name = data.item.name ?? '';
     this.expiryDate = data.item.expiryDate ?? null;

@@ -141,15 +141,15 @@ import { Item } from '../../models/item';
   `]
 })
 export class ItemTableComponent {
-  @Input() items: Item[] = [];
+  @Input() items: any[] = [];
   @Input() categories: Array<{ name: string; icon: string; count: number }> | null = null;
-  @Output() viewItem = new EventEmitter<Item>();
-  @Output() editItem = new EventEmitter<Item>();
-  @Output() replaceItem = new EventEmitter<Item>();
-  @Output() toggleCheckbox = new EventEmitter<Item>();
+  @Output() viewItem = new EventEmitter<any>();
+  @Output() editItem = new EventEmitter<any>();
+  @Output() replaceItem = new EventEmitter<any>();
+  @Output() toggleCheckbox = new EventEmitter<any>();
   @Output() toggleSubitem = new EventEmitter<{ itemId: number; index: number }>();
 
-  onToggle(item: Item, event: Event) {
+  onToggle(item: any, event: Event) {
     if (this.isExpired(item.expiryDate)) {
       event.stopPropagation();
       return;
@@ -176,7 +176,7 @@ export class ItemTableComponent {
     return false;
   }
 
-  getCheckboxStyle(item: Item) {
+  getCheckboxStyle(item: any) {
     if (this.isExpired(item.expiryDate)) {
       return { borderColor: '#b91c1c', backgroundColor: '#fee2e2' };
     }
@@ -204,11 +204,11 @@ export class ItemTableComponent {
     return found?.icon ?? 'inventory_2';
   }
 
-  getStatusLabel(item: Item): string {
+  getStatusLabel(item: any): string {
     if (this.isExpired(item.expiryDate)) return 'Expired';
     // Only show a status label when the item is checked or it's expired
     if (!item.checked && !this.isExpired(item.expiryDate)) return '';
-    const status = item.status;
+    const status = item.status ?? '';
     const visibleStatuses = new Set(['depleted', 'insufficient', 'satisfactory', 'excessive', 'expired']);
     if (!visibleStatuses.has(status)) return '';
     switch (status) {

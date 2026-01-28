@@ -1,13 +1,13 @@
 import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule, MAT_DATE_LOCALE } from '@angular/material/core';
+import { MatNativeDateModule } from '@angular/material/core';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { FormsModule } from '@angular/forms';
+
 import { Item } from '../../models/item';
 
 @Component({
@@ -15,7 +15,6 @@ import { Item } from '../../models/item';
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
@@ -32,22 +31,49 @@ import { Item } from '../../models/item';
           <mat-label>Item Name</mat-label>
           <input matInput [value]="data.item.name" disabled />
         </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="fill">
-          <mat-label>Replacement Quantity</mat-label>
-          <input matInput type="number" min="0" [(ngModel)]="quantity" />
-        </mat-form-field>
+            <ng-container *ngIf="hasVariants(); else singleExpiry">
+              <div style="margin-top:12px;">
+                <table style="width:100%; border-collapse:collapse;">
+                  <thead>
+                    <tr style="text-align:left; border-bottom:1px solid #e5e7eb;">
+                      <th style="padding:6px 8px;">Variant ID</th>
+                      <th style="padding:6px 8px;">Size</th>
+                      <th style="padding:6px 8px;">Expiring Date</th>
+                      <th style="padding:6px 8px;">Replacement Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let v of variants; let vi = index" style="border-bottom:1px solid #f3f4f6;">
+                      <td style="padding:8px;">{{ v.variantId ?? v.id ?? '-' }}</td>
+                      <td style="padding:8px;">{{ v.description ?? v.size ?? v.unit ?? '-' }}</td>
+                      <td style="padding:8px; width:260px;">
+                        <mat-form-field appearance="fill" style="width:220px;">
+                          <input matInput [matDatepicker]="picker" placeholder="dd/MM/yyyy" [(ngModel)]="v._expiryDateObj" (dateChange)="onVariantExpiryChanged(vi)" />
+                          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                          <mat-datepicker #picker></mat-datepicker>
+                        </mat-form-field>
+                      </td>
+                      <td style="padding:8px;">{{ v.replacementDate }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </ng-container>
+            <ng-template #singleExpiry>
+              <mat-form-field appearance="fill" style="margin-top:10px; width:320px;">
+                <mat-label>New Expiry Date</mat-label>
+                <input matInput [matDatepicker]="expiryPicker" placeholder="dd/MM/yyyy" [(ngModel)]="expiryDateObj" />
+                <mat-datepicker-toggle matSuffix [for]="expiryPicker"></mat-datepicker-toggle>
+                <mat-datepicker #expiryPicker></mat-datepicker>
+              </mat-form-field>
 
-        <mat-form-field appearance="fill">
-          <mat-label>New Expiry Date</mat-label>
-          <input matInput placeholder="dd/MM/yyyy" [(ngModel)]="expiryDateString" />
-        </mat-form-field>
-
-        <mat-form-field appearance="fill">
-          <mat-label>Replacement Date</mat-label>
-          <input matInput placeholder="dd/MM/yyyy" [(ngModel)]="replacementDateString" />
-        </mat-form-field>
-      </div>
+              <mat-form-field appearance="fill" style="width:320px;">
+                <mat-label>Replacement Date</mat-label>
+                <input matInput [value]="replacementDateString" disabled />
+              </mat-form-field>
+            </ng-template>
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
@@ -57,35 +83,75 @@ import { Item } from '../../models/item';
   `
 })
 export class ReplaceDialogComponent {
-  expiryDateString: string = '';
+  expiryDateObj: Date | null = null;
   replacementDateString: string = '';
-  quantity: number | null;
+  variants: any[] = [];
 
   constructor(
-    private fb: FormBuilder,
     private dialogRef: MatDialogRef<ReplaceDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { item: Item }
+    @Inject(MAT_DIALOG_DATA) public data: { item: any }
   ) {
-    this.expiryDateString = data.item.expiryDate || '';
-    this.replacementDateString = this.formatDate(new Date());
-    this.quantity = data.item.controlQuantity ?? 0;
+    // initialize expiry date object from existing item expiry (expecting dd/MM/yyyy)
+    const d = (data.item && (data.item as any).expiryDate) ? (data.item as any).expiryDate : null;
+    this.expiryDateObj = this.parseToDate(d);
+    this.replacementDateString = this.formatDate(new Date()) || '';
+
+    // prepare per-variant state when present
+    const vs = Array.isArray((data.item as any).variants) ? (data.item as any).variants : (Array.isArray((data.item as any).items) ? (data.item as any).items : undefined);
+    if (Array.isArray(vs) && vs.length) {
+      const today = this.replacementDateString;
+      this.variants = vs.map((v: any) => {
+        const expiry = v.expiryDate ?? (Array.isArray(v.expiryDates) ? v.expiryDates[0] : null) ?? null;
+        return {
+          ...v,
+          // ensure `description` is present (some data uses `description` for size)
+          description: v.description ?? v.size ?? v.unit ?? null,
+          expiryDate: expiry,
+          _expiryDateObj: this.parseToDate(expiry),
+          replacementDate: v.replacementDate ?? today
+        };
+      });
+    }
   }
 
-  private formatDate(date: Date): string {
+  private parseToDate(s: any): Date | null {
+    if (!s) return null;
+    if (typeof s === 'string' && s.indexOf('/') >= 0) {
+      const parts = s.split('/');
+      if (parts.length === 3) return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    }
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  private formatDate(date: Date | null): string | null {
+    if (!date) return null;
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   }
 
+  hasVariants(): boolean {
+    return Array.isArray(this.variants) && this.variants.length > 0;
+  }
+
   save() {
-    if (!this.expiryDateString || !this.replacementDateString) {
+    if (this.hasVariants()) {
+      const out = this.variants.map(v => ({ ...v, expiryDate: this.formatDate(v._expiryDateObj), replacementDate: v.replacementDate }));
+      this.dialogRef.close({ items: out });
       return;
     }
-    this.dialogRef.close({ expiryDate: this.expiryDateString, replacementDate: this.replacementDateString, controlQuantity: this.quantity });
+    const expiry = this.formatDate(this.expiryDateObj);
+    this.dialogRef.close({ expiryDate: expiry, replacementDate: this.replacementDateString });
   }
 
   close() {
     this.dialogRef.close();
+  }
+
+  onVariantExpiryChanged(index: number) {
+    const v = this.variants[index];
+    v.expiryDate = this.formatDate(v._expiryDateObj);
   }
 }
