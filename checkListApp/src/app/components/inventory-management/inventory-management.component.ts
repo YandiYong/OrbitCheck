@@ -391,144 +391,121 @@ export class InventoryManagementComponent implements OnInit {
   handleCheckboxClick(item: any) {
     // prevent toggling if item is expired and awaiting replacement
     if (this.isExpired(item.expiryDate)) return;
-    
+
     // If item is currently unchecked and has quantity > 1, show dialog with multiple instances
     if (!item.checked && (typeof item.controlQuantity === 'number' && item.controlQuantity > 1)) {
-      // Generate instances for multiple-selection dialog.
-      // If the item has `variants`, show each variant expiry as an instance so user can pick sizes.
+      // Generate instances from the new per-size `items` array (preferred), fall back to legacy `variants` or top-level expiryDate
       let instances: any[] = [];
-      const itemVariants = Array.isArray((item as any).variants) ? (item as any).variants : (Array.isArray((item as any).items) ? (item as any).items : undefined);
-      if (Array.isArray(itemVariants) && itemVariants.length) {
-        for (let vi = 0; vi < itemVariants.length; vi++) {
-          const v = itemVariants[vi];
-          const vDates = Array.isArray(v.expiryDates) && v.expiryDates.length ? v.expiryDates : (v.expiryDate ? [v.expiryDate] : [null]);
-          for (let di = 0; di < vDates.length; di++) {
-            const expiry = vDates[di];
-            instances.push({
-              ...item,
-              id: item.id * 1000 + vi * 10 + di,
-              expiryDate: expiry,
-              parsedDate: this.parseDate(expiry),
-              checked: false,
-              // metadata to map back to variant/item
-              _variantIndex: vi,
-              _variantDateIndex: di,
-              // show unit/size in the dialog's second column
-              name: item.name,
-              category: v.description ?? v.size ?? (v.unit ?? ''),
-            });
-          }
+      const perSize = Array.isArray((item as any).items) ? (item as any).items : undefined;
+      const legacyVariants = Array.isArray((item as any).variants) ? (item as any).variants : undefined;
+
+      if (Array.isArray(perSize) && perSize.length) {
+        for (let vi = 0; vi < perSize.length; vi++) {
+          const v = perSize[vi];
+          const expiry = v?.expiryDate ?? null;
+          instances.push({
+            ...item,
+            id: item.id * 1000 + vi,
+            expiryDate: expiry,
+            parsedDate: this.parseDate(expiry),
+            checked: false,
+            _itemIndex: vi,
+            name: item.name,
+            description: v?.description ?? null,
+            category: item.category ?? ''
+          });
+        }
+      } else if (Array.isArray(legacyVariants) && legacyVariants.length) {
+        for (let vi = 0; vi < legacyVariants.length; vi++) {
+          const v = legacyVariants[vi];
+          const expiry = v?.expiryDate ?? (Array.isArray(v?.expiryDates) ? v.expiryDates[0] : null);
+          instances.push({
+            ...item,
+            id: item.id * 1000 + vi,
+            expiryDate: expiry,
+            parsedDate: this.parseDate(expiry),
+            checked: false,
+            _variantIndex: vi,
+            name: item.name,
+            description: v?.description ?? v?.size ?? null,
+            category: v?.description ?? v?.size ?? (v?.unit ?? '')
+          });
         }
       } else {
-        // Fallback: use top-level expiryDates or expiryDate
-        const expiryDates = (item as any).expiryDates || [(item as any).expiryDate];
-        instances = expiryDates.map((expiry: any, idx: number) => ({
-          ...item,
-          id: item.id * 1000 + idx, // unique ID for each instance
-          expiryDate: expiry,
-          parsedDate: this.parseDate(expiry), // Add parsed date for display
-          checked: false
-        }));
+        // Fallback: single-instance from top-level expiryDate
+        const expiry = (item as any).expiryDate ?? null;
+        instances = [{ ...item, id: item.id * 1000 + 0, expiryDate: expiry, parsedDate: this.parseDate(expiry), checked: false }];
       }
-      
-      const ref = this.dialog.open(UsageDialogComponent, { 
-        width: '700px', 
-        data: { item, instances, isMultipleRequired: true } 
+
+      const ref = this.dialog.open(UsageDialogComponent, {
+        width: '700px',
+        data: { item, instances, isMultipleRequired: true }
       });
-      
+
       ref.afterClosed().subscribe((res: any) => {
         if (!res || typeof res.used !== 'number') return; // user cancelled or no value
-        const totalSelected = res.used; // Total count of selected items
-        const availableCount = res.availableCount || 0; // Count of items that are available
-        const notAvailableCount = res.notAvailableCount || 0; // Count of items that are not available
-        const updatedDates = res.updatedDates || {}; // Updated expiry dates for each instance (indexed by instance array)
-        
+        const availableCount = res.availableCount || 0;
+        const notAvailableCount = res.notAvailableCount || 0;
+        const updatedDates = res.updatedDates || {};
+
         this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
-          // Do not change quantity, only usedToday and status
           const required = i.controlQuantity ?? 0;
           const history = (i.usageHistory ?? []).concat([{ date: new Date().toISOString(), used: availableCount }]);
           const now = new Date().toISOString();
-          
-          // Check if any date was changed (indicating a replacement)
+
+          // Determine if any per-item expiry was updated
           let hasReplacedDate = false;
-          // If item uses per-item entries (previously 'variants'), updatedDates map will reference instance indexes with metadata
-          const origItems = Array.isArray((i as any).variants) ? (i as any).variants : (Array.isArray((i as any).items) ? (i as any).items : undefined);
+          const origItems = Array.isArray((i as any).items) ? (i as any).items : (Array.isArray((i as any).variants) ? (i as any).variants : undefined);
+
           if (Array.isArray(origItems) && origItems.length) {
             for (let k = 0; k < instances.length; k++) {
               const inst = instances[k];
-              if (inst && inst._variantIndex != null && updatedDates[k] && updatedDates[k] !== ((origItems?.[inst._variantIndex]?.expiryDates?.[inst._variantDateIndex] ?? null))) {
-                hasReplacedDate = true;
-                break;
-              }
-            }
-          } else {
-            for (let idx = 0; idx < ((i as any).expiryDates?.length || 0); idx++) {
-              if (updatedDates[idx] && updatedDates[idx] !== (i as any).expiryDates?.[idx]) {
+              const idx = inst?._itemIndex ?? inst?._variantIndex ?? k;
+              if (updatedDates[k] && updatedDates[k] !== (origItems[idx]?.expiryDate ?? (origItems[idx]?.expiryDates ? origItems[idx].expiryDates[0] : null))) {
                 hasReplacedDate = true;
                 break;
               }
             }
           }
-          
-          // Determine status based on available count
+
+          // Compute status
           let status: string;
           if (this.isExpired(i.expiryDate)) {
             status = 'expired';
           } else if (notAvailableCount > 0) {
-            // If any item is not available, check how many are available
-            if (availableCount === 0) {
-              // All items are not available
-              status = 'depleted';
-            } else if (availableCount < required) {
-              // Some items are not available, but we have some available
-              status = 'insufficient';
-            } else {
-              // All required items are available despite some marked as not available
-              status = 'satisfactory';
-            }
+            if (availableCount === 0) status = 'depleted';
+            else if (availableCount < required) status = 'insufficient';
+            else status = 'satisfactory';
           } else if (availableCount === required) {
-            // All selected items are available and match required count
             status = 'satisfactory';
           } else if (availableCount > required && availableCount <= required + 5) {
             status = 'excessive';
-            } else {
-              status = 'satisfactory';
-            }
-          const newChecked = true;
-          
-          // Update expiryDates array if dates were changed
-          const newItem: any = { ...i, checked: newChecked, status, checkedDate: now, usageHistory: history, usedToday: availableCount };
-          
-          if (hasReplacedDate) {
-            if (Array.isArray(origItems) && origItems.length) {
-              // Apply updates into per-item expiry arrays
-              const newItems = origItems.map((v: any) => ({ ...v }));
-              for (let k = 0; k < instances.length; k++) {
-                const inst = instances[k];
-                if (!inst || inst._variantIndex == null) continue;
-                const vi = inst._variantIndex;
-                const di = inst._variantDateIndex ?? 0;
-                const newDate = updatedDates[k];
-                if (newDate) {
-                  newItems[vi].expiryDates = Array.isArray(newItems[vi].expiryDates) ? [...newItems[vi].expiryDates] : (newItems[vi].expiryDates ? [newItems[vi].expiryDates] : []);
-                  newItems[vi].expiryDates[di] = newDate;
-                }
-              }
-              newItem.items = newItems;
-              // update primary expiryDate to earliest item expiry (if any)
-              const allDates = newItems.flatMap((v: any) => v.expiryDates || []);
-              newItem.expiryDate = allDates.length ? allDates.sort()[0] : newItem.expiryDate;
-              newItem.replacementDate = now;
-            } else {
-              // Update the expiryDates array with new dates
-              const newDates = ((i as any).expiryDates || []).map((date: any, idx: number) => updatedDates[idx] || date);
-              newItem.expiryDates = newDates;
-              newItem.expiryDate = newDates[0]; // Update primary expiryDate to first date
-              newItem.replacementDate = now; // Mark as replacement
-            }
+          } else {
+            status = 'satisfactory';
           }
-          
+
+          const newChecked = true;
+          const newItem: any = { ...i, checked: newChecked, status, checkedDate: now, usageHistory: history, usedToday: availableCount };
+
+          if (hasReplacedDate && Array.isArray(origItems) && origItems.length) {
+            const newItems = origItems.map((v: any) => ({ ...v }));
+            for (let k = 0; k < instances.length; k++) {
+              const inst = instances[k];
+              const idx = inst?._itemIndex ?? inst?._variantIndex ?? k;
+              const newDate = updatedDates[k];
+              if (newDate && newItems[idx]) {
+                // write back to per-size expiryDate
+                newItems[idx].expiryDate = newDate;
+              }
+            }
+            newItem.items = newItems;
+            // set primary expiryDate to earliest known (fallback to first)
+            const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
+            newItem.expiryDate = allDates.length ? allDates[0] : newItem.expiryDate;
+            newItem.replacementDate = now;
+          }
+
           return newItem;
         }));
         this.saveTodaySnapshot();

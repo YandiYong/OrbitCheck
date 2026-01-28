@@ -40,7 +40,7 @@ import { Item } from '../../models/item';
               <tr>
                 <th style="padding:8px; text-align:left; font-weight:600; width:40px;">Checked</th>
                 <th style="padding:8px; text-align:left; font-weight:600;">Item</th>
-                <th style="padding:8px; text-align:left; font-weight:600;">Unit / Size</th>
+                <th style="padding:8px; text-align:left; font-weight:600;">Description</th>
                 <th style="padding:8px; text-align:left; font-weight:600;">Expiry Date</th>
                 <th style="padding:8px; text-align:center; font-weight:600;">Present</th>
               </tr>
@@ -53,7 +53,7 @@ import { Item } from '../../models/item';
                   <input type="checkbox" [checked]="selectedIndices.has(i)" (click)="$event.stopPropagation(); toggleItemSelection(i)" />
                 </td>
                 <td style="padding:8px;">{{ instance.name }}</td>
-                <td style="padding:8px;">{{ instance.category }}</td>
+                <td style="padding:8px;">{{ instance.description  }}</td>
                 <td style="padding:8px;">
                   <input type="text" 
                          [ngModel]="editableDates[i]" 

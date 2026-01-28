@@ -38,15 +38,13 @@ import { Item } from '../../models/item';
                 <table style="width:100%; border-collapse:collapse;">
                   <thead>
                     <tr style="text-align:left; border-bottom:1px solid #e5e7eb;">
-                      <th style="padding:6px 8px;">Variant ID</th>
-                      <th style="padding:6px 8px;">Size</th>
+                      <th style="padding:6px 8px;">Description</th>
                       <th style="padding:6px 8px;">Expiring Date</th>
                       <th style="padding:6px 8px;">Replacement Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr *ngFor="let v of variants; let vi = index" style="border-bottom:1px solid #f3f4f6;">
-                      <td style="padding:8px;">{{ v.variantId ?? v.id ?? '-' }}</td>
                       <td style="padding:8px;">{{ v.description ?? v.size ?? v.unit ?? '-' }}</td>
                       <td style="padding:8px; width:260px;">
                         <mat-form-field appearance="fill" style="width:220px;">
