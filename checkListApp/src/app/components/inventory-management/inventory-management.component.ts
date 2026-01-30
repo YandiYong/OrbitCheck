@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, OnInit } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
@@ -13,6 +13,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
+import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
 import { Item } from '../../models/item';
@@ -46,6 +47,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     MatButtonModule,
     MatDialogModule,
     MatFormFieldModule,
+    MatSelectModule,
     MatInputModule,
     MatDatepickerModule,
     MatNativeDateModule,
@@ -100,16 +102,20 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
             </div>
           </app-stats-card>
         </div>
-          <mat-card  style="margin-left:75rem; width:300px;">
-           <mat-form-field  style="width:100%; appearance:fill;">
-           <mat-label>Select Date Range</mat-label>   
-           <mat-date-range-input [rangePicker]="picker">
-               <input matStartDate placeholder="Start date" [ngModel]="rangeStart()" (ngModelChange)="rangeStart.set($event)" name="start">
-               <input matEndDate placeholder="End date" [ngModel]="rangeEnd()" (ngModelChange)="rangeEnd.set($event)" name="end">
-          </mat-date-range-input>
-          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-          <mat-date-range-picker #picker></mat-date-range-picker>
+          
+        
+        <mat-card style="width:320px; margin-left:1300px; display:inline-block; vertical-align:top;">
+          <mat-form-field appearance="fill" style="width:100%; background:white; border-radius:6px; padding:6px 8px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+            <mat-label>Session</mat-label>
+            <mat-select [value]="selectedSession()" (selectionChange)="selectedSession.set($event.value)">
+              <mat-option *ngFor="let s of sessionTypes" [value]="s.key">{{s.label}}</mat-option>
+            </mat-select>
           </mat-form-field>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+            <button mat-flat-button (click)="startSession()" *ngIf="!activeSession()" style="background:#16a34a; color:white;">Start</button>
+            <button mat-flat-button (click)="finishSession()" *ngIf="activeSession()" style="background:#b91c1c; color:white;">Finish</button>
+            <div *ngIf="activeSession()" style="margin-left:8px; font-weight:700;">{{ getSessionElapsed() }}</div>
+          </div>
         </mat-card>
         
         <mat-card style="background:white; box-shadow:0 8px 30px rgba(2,6,23,0.04);">
@@ -131,9 +137,29 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
   styles: [`
     :host { display:block; height:100%; font-family: 'Roboto', sans-serif; background:#f3f6f9; }
     .full-table { width:100%; }
+    /* Ensure mat-select dropdown panel is opaque and readable */
+    ::ng-deep .mat-mdc-select-panel, ::ng-deep .mat-select-panel {
+      background-color: white !important;
+      color: #111827 !important;
+      box-shadow: 0 6px 18px rgba(2,6,23,0.08) !important;
+      border-radius: 6px !important;
+    }
+    ::ng-deep .mat-mdc-select-panel .mat-mdc-list-item, ::ng-deep .mat-select-panel .mat-option {
+      background-color: transparent !important;
+      color: inherit !important;
+    }
   `]
 })
-export class InventoryManagementComponent implements OnInit {
+export class InventoryManagementComponent implements OnInit, OnDestroy {
+  private timerId: any = null;
+  sessionTypes = [
+    { key: 'morning', label: 'Morning Shift' },
+    { key: 'afternoon', label: 'Afternoon Shift' },
+    { key: 'emergency', label: 'Emergency Event' }
+  ];
+  selectedSession = signal<string>('morning');
+  activeSession = signal<any | null>(null);
+  now = signal<Date>(new Date());
   constructor(private api: SignatureApiService) {}
   private http = inject(HttpClient);
   private readonly inventoryUrl = environment.inventoryApiUrl;
@@ -175,6 +201,15 @@ export class InventoryManagementComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadInventory();
+    // update clock every second for timer display
+    this.timerId = setInterval(() => this.now.set(new Date()), 1000);
+    // restore any active session for today
+    const active = this.dailyService.getActiveSession();
+    if (active) this.activeSession.set(active);
+  }
+
+  ngOnDestroy(): void {
+    if (this.timerId) clearInterval(this.timerId);
   }
 
   private loadInventory() {
@@ -652,6 +687,38 @@ export class InventoryManagementComponent implements OnInit {
     // snapshot only essential fields to keep storage small
     const snapshot = this.inventory().map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null }));
     this.dailyService.saveSnapshot(new Date(), snapshot);
+  }
+
+  startSession() {
+    const session = this.dailyService.startSession(this.selectedSession());
+    // persist a lightweight snapshot when starting
+    this.saveTodaySnapshot();
+    this.activeSession.set(session);
+  }
+
+  finishSession() {
+    const snapshotEnd = this.inventory().map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null, usedToday: i.usedToday ?? null }));
+    const finished = this.dailyService.finishSession(this.selectedSession(), snapshotEnd);
+    // persist one more time
+    this.saveTodaySnapshot();
+    this.activeSession.set(null);
+    return finished;
+  }
+
+  getSessionElapsed(): string {
+    const s = this.activeSession();
+    if (!s || !s.startTime) return '00:00:00';
+    try {
+      const start = new Date(s.startTime);
+      const diff = Math.max(0, Math.floor((this.now().getTime() - start.getTime()) / 1000));
+      const hrs = Math.floor(diff / 3600);
+      const mins = Math.floor((diff % 3600) / 60);
+      const secs = diff % 60;
+      const pad = (n: number) => (n < 10 ? '0' + n : String(n));
+      return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+    } catch (e) {
+      return '00:00:00';
+    }
   }
 
   // summary: previous day's items that were checked and not available

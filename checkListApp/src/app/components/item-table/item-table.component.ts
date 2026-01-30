@@ -50,7 +50,12 @@ import { Item } from '../../models/item';
             <div>
               <div style="font-weight:700; color:#111827;">{{item.name}}</div>
               <div style="color:#6b7280; font-size:0.85rem;">
-                Expires: {{item.expiryDate}} <span *ngIf="isExpired(item.expiryDate)" style="color:#b91c1c; font-weight:700; margin-left:6px;">(EXPIRED)</span>
+                <ng-container *ngIf="(item.controlQuantity ?? 0) > 1; else singleExpiry">
+                  {{ getExpiredCount(item) }} expired
+                </ng-container>
+                <ng-template #singleExpiry>
+                  Expires: {{item.expiryDate}} <span *ngIf="isExpired(item.expiryDate)" style="color:#b91c1c; font-weight:700; margin-left:6px;">(EXPIRED)</span>
+                </ng-template>
               </div>
               <div *ngIf="item.syringes" style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
                 <div *ngFor="let s of item.syringes; let i = index" style="display:flex; align-items:center; gap:8px;">
@@ -231,6 +236,28 @@ export class ItemTableComponent {
       'Excessive': '#0ea5e9'
     };
     return colors[label] || '#6b7280';
+  }
+
+  getExpiredCount(item: any): number {
+    if (!item) return 0;
+    const now = new Date();
+    let candidates: any[] = [];
+    if (Array.isArray(item.items) && item.items.length) candidates = item.items;
+    else if (Array.isArray(item.variants) && item.variants.length) candidates = item.variants;
+    else if (Array.isArray(item.syringes) && item.syringes.length) candidates = item.syringes;
+    else return 0;
+
+    return candidates.reduce((count, it) => {
+      const date = it.expiryDate ?? (Array.isArray(it.expiryDates) ? it.expiryDates[0] : undefined) ?? it.expiry;
+      if (!date) return count;
+      try {
+        // reuse existing isExpired logic by formatting date as string
+        if (this.isExpired(String(date))) return count + 1;
+      } catch (e) {
+        // ignore parse errors
+      }
+      return count;
+    }, 0 as number);
   }
 
 }
