@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
   // production API endpoint - replace with your deployed API
-  inventoryApiUrl: 'inventoryData.json'
+  inventoryApiUrl: 'https://localhost:7053/api/checklist'
 };

@@ -18,7 +18,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
 import { Item } from '../../models/item';
 import { DailyChecklistService } from '../../services/daily-checklist.service';
-import { environment } from '../../../environments/environment';
+import { InventoryApiService } from '../../services/inventory-api.service';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
 import { DetailsDialogComponent } from '../details-dialog/details-dialog.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
@@ -26,7 +26,7 @@ import { StatsCardComponent } from '../stats-card/stats-card.component';
 import { ItemTableComponent } from '../item-table/item-table.component';
 import { UsageDialogComponent } from '../usage-dialog/usage-dialog.component';
 import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.component';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { HttpClientModule } from '@angular/common/http';
 
 import{DsvSignatureFormComponent,DsvStoredListComponent,SignatureApiService} from 'signature';
 import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
@@ -64,7 +64,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     SignatureWrapperModule,
     HttpClientModule,
   ],
-  providers: [SignatureApiService],
+  providers: [SignatureApiService, InventoryApiService],
   template: `
   <mat-toolbar color="primary" style="display:flex; justify-content:space-between;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -77,7 +77,16 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
       <mat-icon >trolley</mat-icon>
     </div>
   </mat-toolbar>
-
+    <div *ngIf="loading()" style="padding:8px 12px;">
+      <mat-card style="background:#fff9db; color:#92400e;">Loading inventory from API…</mat-card>
+    </div>
+    <div *ngIf="apiError()" style="padding:8px 12px;">
+      <mat-card style="background:#fee2e2; color:#7f1d1d;">
+        <div style="font-weight:700;">API Error</div>
+        <div style="margin-top:6px;">{{ apiError() }}</div>
+        <div *ngIf="showingCached()" style="margin-top:8px; font-size:0.9rem; color:#4b5563;">Showing cached snapshot for today.</div>
+      </mat-card>
+    </div>
   <div style="display:flex; gap:16px; padding:12px;">
     <mat-sidenav-container style="height:calc(100vh - 64px); width:100%;">
       <mat-sidenav mode="side" opened style="width:260px; padding:12px; background:white; box-shadow:0 6px 18px rgba(16,24,40,0.06);">
@@ -160,11 +169,10 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   selectedSession = signal<string>('morning');
   activeSession = signal<any | null>(null);
   now = signal<Date>(new Date());
-  constructor(private api: SignatureApiService) {}
-  private http = inject(HttpClient);
-  private readonly inventoryUrl = environment.inventoryApiUrl;
-  private dialog = inject(MatDialog);
-  private dailyService = inject(DailyChecklistService);
+  loading = signal<boolean>(false);
+  apiError = signal<string | null>(null);
+  showingCached = signal<boolean>(false);
+  constructor(private api: SignatureApiService, private inventoryApi: InventoryApiService, private dialog: MatDialog, private dailyService: DailyChecklistService) {}
 
   // today's date for display
   today: Date = new Date();
@@ -213,9 +221,13 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   }
 
   private loadInventory() {
-    this.http.get<any>(this.inventoryUrl).subscribe({
+    this.loading.set(true);
+    this.apiError.set(null);
+    this.showingCached.set(false);
+    this.inventoryApi.getInventory().subscribe({
       next: raw => {
         console.debug('Inventory API response:', raw);
+        this.loading.set(false);
         // Accept either { categories: [...] } or an array of categories
         // Also accept a flat array of items (common API shape) and wrap into a category
         let cats: any[] = [];
@@ -228,7 +240,15 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
             cats = raw;
           }
         } else {
-          cats = raw.categories || [];
+          // Accept several shapes: { categories: [...] } or { items: [...] } or other
+          if (Array.isArray(raw.categories) && raw.categories.length) {
+            cats = raw.categories;
+          } else if (Array.isArray(raw.items) && raw.items.length) {
+            // top-level items array — wrap into a single category
+            cats = [{ category: raw.categoryName ?? raw.category ?? raw.name ?? 'API Items', items: raw.items }];
+          } else {
+            cats = raw.categories || [];
+          }
         }
 
         // helper: choose earliest/valid expiry from multiple possible fields
@@ -261,6 +281,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
         const pad = (n: number) => (n < 10 ? '0' + n : String(n));
 
+        console.debug('Parsed categories (loader):', cats);
         const items = (cats as unknown as any[]).flatMap(cat => (cat.items || []).map((it: any) => {
           const primaryExpiry = choosePrimaryExpiry(it);
 
@@ -305,7 +326,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           return {
             ...it,
             name: it.itemName ?? it.name,
-            category: it.category ?? cat.category,
+            category: it.category ?? cat?.category ?? cat?.categoryName ?? it.categoryName ?? it.group ?? it.type ?? 'Uncategorized',
             expiryDate: expiryDateFormatted,
             controlQuantity: ctrlQty,
             status: normalizedStatus,
@@ -314,9 +335,27 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         }));
 
         this.inventory.set(items);
+        console.debug('Mapped items (first 10):', items.slice(0, 10));
+        this.loading.set(false);
+        this.apiError.set(null);
       },
       error: err => {
         console.error('Failed to load inventory from API', err);
+        this.loading.set(false);
+        const msg = err?.message ?? (err?.statusText ?? String(err));
+        this.apiError.set('Failed to load inventory from API: ' + msg);
+        // attempt to show today's snapshot if available
+        try {
+          const snap = this.dailyService.getSnapshot(new Date());
+          if (snap && Array.isArray(snap) && snap.length) {
+            this.showingCached.set(true);
+            // show minimal cached snapshot as items with limited fields
+            const cachedItems = (snap as any[]).map(s => ({ id: s.id, name: s.name, status: s.status, checked: s.checked, checkedDate: s.checkedDate }));
+            this.inventory.set(cachedItems);
+          }
+        } catch (e) {
+          // ignore
+        }
       }
     });
   }
@@ -685,7 +724,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
   private saveTodaySnapshot() {
     // snapshot only essential fields to keep storage small
-    const snapshot = this.inventory().map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null }));
+    const snapshot = this.inventory().map(i => ({ id: i.id, name: i.name, category: i.category ?? null, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null }));
     this.dailyService.saveSnapshot(new Date(), snapshot);
   }
 
