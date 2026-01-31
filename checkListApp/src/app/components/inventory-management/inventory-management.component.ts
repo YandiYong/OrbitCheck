@@ -20,6 +20,7 @@ import { Item } from '../../models/item';
 import { DailyChecklistService } from '../../services/daily-checklist.service';
 import { InventoryApiService } from '../../services/inventory-api.service';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
+import { generateInstances } from '../../utils/instance-utils';
 import { DetailsDialogComponent } from '../details-dialog/details-dialog.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { StatsCardComponent } from '../stats-card/stats-card.component';
@@ -468,52 +469,43 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
     // If item is currently unchecked and has quantity > 1, show dialog with multiple instances
     if (!item.checked && (typeof item.controlQuantity === 'number' && item.controlQuantity > 1)) {
-      // Generate instances from the new per-size `items` array (preferred), fall back to legacy `variants` or top-level expiryDate
-      let instances: any[] = [];
-      const perSize = Array.isArray((item as any).items) ? (item as any).items : undefined;
-      const legacyVariants = Array.isArray((item as any).variants) ? (item as any).variants : undefined;
-
-      if (Array.isArray(perSize) && perSize.length) {
-        for (let vi = 0; vi < perSize.length; vi++) {
-          const v = perSize[vi];
-          const expiry = v?.expiryDate ?? null;
-          instances.push({
-            ...item,
-            id: item.id * 1000 + vi,
-            expiryDate: expiry,
-            parsedDate: this.parseDate(expiry),
-            checked: false,
-            _itemIndex: vi,
-            name: item.name,
-            description: v?.description ?? null,
-            category: item.category ?? ''
-          });
-        }
-      } else if (Array.isArray(legacyVariants) && legacyVariants.length) {
-        for (let vi = 0; vi < legacyVariants.length; vi++) {
-          const v = legacyVariants[vi];
-          const expiry = v?.expiryDate ?? (Array.isArray(v?.expiryDates) ? v.expiryDates[0] : null);
-          instances.push({
-            ...item,
-            id: item.id * 1000 + vi,
-            expiryDate: expiry,
-            parsedDate: this.parseDate(expiry),
-            checked: false,
-            _variantIndex: vi,
-            name: item.name,
-            description: v?.description ?? v?.size ?? null,
-            category: v?.description ?? v?.size ?? (v?.unit ?? '')
-          });
-        }
-      } else {
-        // Fallback: single-instance from top-level expiryDate
-        const expiry = (item as any).expiryDate ?? null;
-        instances = [{ ...item, id: item.id * 1000 + 0, expiryDate: expiry, parsedDate: this.parseDate(expiry), checked: false }];
-      }
+      // Generate per-instance rows using shared helper, then enrich for the inventory UI
+      let instances: any[] = generateInstances(item).map((inst: any) => ({
+        ...inst,
+        parsedDate: this.parseDate(inst.expiryDate),
+        checked: false,
+        category: inst.category ?? item.category ?? ''
+      }));
 
       const ref = this.dialog.open(UsageDialogComponent, {
         width: '700px',
-        data: { item, instances, isMultipleRequired: true }
+        data: {
+          item,
+          instances,
+          isMultipleRequired: true,
+          onReplaceImmediate: (index: number, newInst: any) => {
+            // Apply a replacement immediately to inventory for visual update
+            const now = new Date().toISOString();
+            this.inventory.update(items => items.map(i => {
+              if (i.id !== item.id) return i;
+              const required = i.controlQuantity ?? 0;
+              let origItems = Array.isArray((i as any).items) ? (i as any).items : (Array.isArray((i as any).variants) ? (i as any).variants : undefined);
+              if (Array.isArray(origItems) && origItems.length) {
+                const inst = instances[index];
+                const idx = inst?._itemIndex ?? inst?._variantIndex ?? index;
+                const newItems = origItems.map((v: any) => ({ ...v }));
+                if (newInst?.expiryDate) newItems[idx] = { ...(newItems[idx] || {}), expiryDate: newInst.expiryDate };
+                const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
+                const primary = allDates.length ? allDates.sort()[0] : (newItems[0]?.expiryDate ?? i.expiryDate);
+                return { ...i, items: newItems, expiryDate: primary, replacementDate: now, checked: false, checkedDate: null, usedToday: null };
+              } else {
+                // fallback: update top-level expiryDate
+                return { ...i, expiryDate: newInst?.expiryDate ?? i.expiryDate, replacementDate: now, checked: false, checkedDate: null, usedToday: null, status: (required > 0 ? 'satisfactory' : 'depleted') };
+              }
+            }));
+            this.saveTodaySnapshot();
+          }
+        }
       });
 
       ref.afterClosed().subscribe((res: any) => {
@@ -590,7 +582,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     // We'll handle the "checking" action specially so we can collect used quantity when present.
     // If item is currently unchecked and has a numeric quantity, open a dialog to record usage.
     if (!item.checked && (typeof item.controlQuantity === 'number')) {
-      const ref = this.dialog.open(UsageDialogComponent, { width: '420px', data: { item } });
+      const ref = this.dialog.open(UsageDialogComponent, { width: '700px', data: { item } });
       ref.afterClosed().subscribe((res: any) => {
         if (!res || typeof res.used !== 'number') return; // user cancelled or no value
         let used = res.used;
