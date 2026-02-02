@@ -88,8 +88,8 @@ import { Item } from '../../models/item';
                 <span>Edit</span>
               </button>
             </mat-menu>
-           <button mat-flat-button color="accent"
-        *ngIf="isExpired(item.expiryDate) || ['insufficient', 'excessive', 'depleted'].includes(item.status)"(click)="replaceItem.emit(item)"> Replace Item</button>
+            <button mat-flat-button color="accent"
+          *ngIf="(isExpired(item.expiryDate) || ['insufficient', 'excessive', 'depleted'].includes(item.status)) && (!(item.replacementDate) || ((item.controlQuantity ?? 0) > 1 && ((item.replacedCount ?? 0) < (item.controlQuantity ?? 0))))" (click)="replaceItem.emit(item)"> Replace Item</button>
  
           </div>
         </td>

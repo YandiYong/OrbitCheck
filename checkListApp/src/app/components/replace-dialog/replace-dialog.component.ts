@@ -44,12 +44,12 @@ import { Item } from '../../models/item';
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let v of variants; let vi = index" style="border-bottom:1px solid #f3f4f6;">
+                    <tr *ngFor="let v of variants; let vi = index" style="border-bottom:1px solid #f3f4f6;" [style.background]="v.isReplacement ? '#f3f4f6' : ''" [style.opacity]="v.isReplacement ? '0.6' : '1'">
                       <td style="padding:8px;">{{ v.description ?? v.size ?? v.unit ?? '-' }}</td>
                       <td style="padding:8px; width:260px;">
                         <mat-form-field appearance="fill" style="width:220px;">
-                          <input matInput [matDatepicker]="picker" placeholder="dd/MM/yyyy" [(ngModel)]="v._expiryDateObj" (dateChange)="onVariantExpiryChanged(vi)" />
-                          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                          <input matInput [matDatepicker]="picker" placeholder="dd/MM/yyyy" [(ngModel)]="v._expiryDateObj" (dateChange)="onVariantExpiryChanged(vi)" [disabled]="v.isReplacement" />
+                          <mat-datepicker-toggle *ngIf="!v.isReplacement" matSuffix [for]="picker"></mat-datepicker-toggle>
                           <mat-datepicker #picker></mat-datepicker>
                         </mat-form-field>
                       </td>
@@ -150,6 +150,7 @@ export class ReplaceDialogComponent {
 
   onVariantExpiryChanged(index: number) {
     const v = this.variants[index];
+    if (v && v.isReplacement) return;
     v.expiryDate = this.formatDate(v._expiryDateObj);
   }
 }

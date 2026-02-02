@@ -494,13 +494,19 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
                 const inst = instances[index];
                 const idx = inst?._itemIndex ?? inst?._variantIndex ?? index;
                 const newItems = origItems.map((v: any) => ({ ...v }));
-                if (newInst?.expiryDate) newItems[idx] = { ...(newItems[idx] || {}), expiryDate: newInst.expiryDate };
+                if (newInst?.expiryDate) {
+                  newItems[idx] = { ...(newItems[idx] || {}), expiryDate: newInst.expiryDate, replacementDate: now, isReplacement: true };
+                }
                 const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
                 const primary = allDates.length ? allDates.sort()[0] : (newItems[0]?.expiryDate ?? i.expiryDate);
-                return { ...i, items: newItems, expiryDate: primary, replacementDate: now, checked: false, checkedDate: null, usedToday: null };
+                // compute replacedCount from explicit `isReplacement` flags on instances
+                const totalInstances = Math.max(origItems.length, i.controlQuantity || 0, 1);
+                const actualReplacedCount = newItems.filter((v: any) => !!v.isReplacement).length;
+                const allReplaced = actualReplacedCount >= totalInstances;
+                return { ...i, items: newItems, expiryDate: primary, replacementDate: allReplaced ? now : i.replacementDate, replacedCount: actualReplacedCount, checked: false, checkedDate: null, usedToday: null };
               } else {
                 // fallback: update top-level expiryDate
-                return { ...i, expiryDate: newInst?.expiryDate ?? i.expiryDate, replacementDate: now, checked: false, checkedDate: null, usedToday: null, status: (required > 0 ? 'satisfactory' : 'depleted') };
+                return { ...i, expiryDate: newInst?.expiryDate ?? i.expiryDate, replacementDate: now, replacedCount: 1, checked: false, checkedDate: null, usedToday: null, status: (required > 0 ? 'satisfactory' : 'depleted') };
               }
             }));
             this.saveTodaySnapshot();
@@ -561,15 +567,23 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
               const idx = inst?._itemIndex ?? inst?._variantIndex ?? k;
               const newDate = updatedDates[k];
               if (newDate && newItems[idx]) {
-                // write back to per-size expiryDate
+                // write back to per-size expiryDate and mark as replacement
                 newItems[idx].expiryDate = newDate;
+                newItems[idx].replacementDate = now;
+                newItems[idx].isReplacement = true;
               }
             }
             newItem.items = newItems;
             // set primary expiryDate to earliest known (fallback to first)
             const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
             newItem.expiryDate = allDates.length ? allDates[0] : newItem.expiryDate;
-            newItem.replacementDate = now;
+            // compute replacedCount from explicit flags (do not accumulate)
+            const totalInstances = Math.max(i.controlQuantity || 0, origItems.length, 1);
+            const actualReplaced = newItems.filter((v: any) => !!v.isReplacement).length;
+            if (actualReplaced) {
+              newItem.replacedCount = actualReplaced;
+              if ((newItem.replacedCount || 0) >= totalInstances) newItem.replacementDate = now;
+            }
           }
 
           return newItem;
@@ -703,10 +717,36 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         const now = new Date().toISOString();
         this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
-          const newItems = result.items;
-          const allDates = newItems.flatMap((v: any) => (Array.isArray(v.expiryDates) ? v.expiryDates : (v.expiryDate ? [v.expiryDate] : []))).filter(Boolean);
-          const primary = allDates.length ? allDates.sort()[0] : (newItems[0]?.expiryDate ?? i.expiryDate);
-          return { ...i, items: newItems, expiryDate: primary, replacementDate: now, checked: false, checkedDate: null, usedToday: null };
+          const origItems = Array.isArray(i.items) ? i.items : (Array.isArray(i.variants) ? i.variants : []);
+          const returned = result.items;
+          // merge returned expiry into existing variant list where possible
+          const merged = (origItems.length ? origItems.map((v: any, idx: number) => ({ ...v })) : returned.map((v: any) => ({ ...v })));
+          for (let k = 0; k < returned.length; k++) {
+            if (merged[k]) {
+              const returnedExpiry = returned[k]?.expiryDate ?? null;
+              const origExpiry = merged[k]?.expiryDate ?? (Array.isArray(merged[k]?.expiryDates) ? merged[k].expiryDates[0] : null);
+              if (returnedExpiry && returnedExpiry !== origExpiry) {
+                merged[k].expiryDate = returnedExpiry;
+                merged[k].replacementDate = now;
+                merged[k].isReplacement = true;
+              }
+            } else {
+              // append any extra returned items
+              merged.push({ ...returned[k], replacementDate: returned[k]?.replacementDate ?? now, isReplacement: true });
+            }
+          }
+
+          // determine primary expiry and replacedCount from flags
+          const allDates = merged.map((v: any) => v.expiryDate).filter(Boolean);
+          const primary = allDates.length ? allDates.sort()[0] : i.expiryDate;
+          const totalInstances = Math.max(i.controlQuantity || 0, merged.length, 1);
+          const actualReplaced = merged.filter((v: any) => !!v.isReplacement).length;
+          const newItem: any = { ...i, items: merged, expiryDate: primary, checked: false, checkedDate: null, usedToday: null };
+          if (actualReplaced) {
+            newItem.replacedCount = actualReplaced;
+            if (actualReplaced >= totalInstances) newItem.replacementDate = now;
+          }
+          return newItem;
         }));
         this.saveTodaySnapshot();
         return;
