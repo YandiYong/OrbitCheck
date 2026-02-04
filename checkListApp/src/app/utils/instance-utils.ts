@@ -21,9 +21,9 @@ export function generateInstances(item: any): any[] {
       instances.push({
         ...item,
         id: (item.id ?? 0) * 1000 + vi,
-        expiryDate: v?.expiryDate ?? (Array.isArray(v?.expiryDates) ? v.expiryDates[0] : null),
+        expiryDate: v?.expiryDate ?? null,
         name: item.name,
-        description: v?.description ?? v?.size ?? null,
+        description: v?.description ?? null,
         _variantIndex: vi
       });
     }

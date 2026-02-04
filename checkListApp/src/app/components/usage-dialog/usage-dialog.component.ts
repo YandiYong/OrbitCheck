@@ -9,16 +9,19 @@ import { MatTableModule } from '@angular/material/table';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import { FormsModule } from '@angular/forms';
-import { Item } from '../../models/item';
+import { Item, Variant } from '../../models/item';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
 import { generateInstances } from '../../utils/instance-utils';
 import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instance-detail-dialog.component';
+import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
 
 @Component({
   selector: 'app-usage-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatTableModule, MatCheckboxModule, MatIconModule, MatTooltipModule, FormsModule],
+  imports: [CommonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatTableModule, MatCheckboxModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatNativeDateModule, FormsModule],
   template: `
     <div class="ud-header">
       <h2 mat-dialog-title class="ud-title">Required Item(s): {{ data.item.controlQuantity }}</h2>
@@ -80,15 +83,14 @@ import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instanc
                       <input type="checkbox" [checked]="selectedIndices.has(i)" (click)="$event.stopPropagation(); toggleItemSelection(i)" [disabled]="instanceDisabled.has(i)" />
                     </label>
                   </td>
-                  <td class="ud-td" (click)="$event.stopPropagation(); openInstanceDetail(i)">{{ instance.name }}</td>
-                  <td class="ud-td">{{ instance.description  }}</td>
+                  <td class="ud-td" (click)="$event.stopPropagation(); openInstanceDetail(i)">{{ instance.name }} </td>
+                  <td class="ud-td"> {{ instance.description  }}</td>
                   <td class="ud-td">
-                    <input type="text" 
-                           [ngModel]="editableDates[i]" 
-                           (ngModelChange)="editableDates[i] = $event"
-                           (click)="$event.stopPropagation()"
-                           placeholder="dd/MM/yyyy"
-                           class="ud-input" />
+                    <mat-form-field appearance="fill" style="width:140px;">
+                      <input matInput [matDatepicker]="picker" [(ngModel)]="editableDates[i]" (click)="$event.stopPropagation()" placeholder="dd/MM/yyyy" class="ud-input" />
+                      <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                      <mat-datepicker #picker></mat-datepicker>
+                    </mat-form-field>
                   </td>
                   <td class="ud-td center">
                     <input type="checkbox" 
@@ -105,6 +107,7 @@ import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instanc
             </table>
 
             <div *ngIf="errorMultiple" class="ud-error-multiple">{{ errorMultiple }}</div>
+            <div *ngIf="warningMultiple" class="ud-error-mismatch">{{ warningMultiple }}</div>
           </div>  
       </div>
     </mat-dialog-content>
@@ -117,32 +120,32 @@ import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instanc
   `
   ,
   styles: [
-  `:host { font-family: 'Roboto', 'Helvetica', Arial, sans-serif; color: #111827; }
-    .ud-content { max-height: 60vh; overflow:auto; padding:16px 12px; box-sizing:border-box; }
-    .ud-stack { display:flex; flex-direction:column; gap:12px; }
-    .ud-section { display:flex; flex-direction:column; gap:12px; }
-    .ud-help-box { background:#f8fafc; border:1px solid #e6f2f8; padding:10px; border-radius:8px; margin:8px 0 12px 0; }
-    .ud-tip-icon { color:#0ea5e9; }
+  `:host { font-family: 'Roboto', 'Helvetica', Arial, sans-serif; color: var(--color-text); }
+    .ud-content { max-height: 60vh; overflow:auto; padding:var(--space-lg) var(--space-md); box-sizing:border-box; }
+    .ud-stack { display:flex; flex-direction:column; gap:var(--space-md); }
+    .ud-section { display:flex; flex-direction:column; gap:var(--space-md); }
+    .ud-help-box { background:var(--bg-pale); border:1px solid rgba(230,242,248,0.9); padding:var(--space-sm); border-radius:var(--radius-md); margin:8px 0 12px 0; }
+    .ud-tip-icon { color: var(--color-primary); }
     .ud-help-list { margin-top:6px; color:#334155; font-size:0.95rem; }
     .ud-help-header { display:flex; align-items:center; gap:8px; cursor:pointer; }
     .ud-help-chevron { margin-left:auto; transition:transform .18s ease; }
     .ud-help-chevron.open { transform:rotate(180deg); }
     .ud-header { display:flex; align-items:center; gap:8px; }
-    .ud-close-btn { margin-left:auto; color:#374151; }
-    .ud-title { font-size:1.125rem; font-weight:700; margin:0 0 8px 0; color:#0f172a; }
-    .ud-item-title { font-weight:700; color:#111827; font-size:1rem; }
-    .ud-item-title.small { font-size:0.95rem; color:#374151; }
+    .ud-close-btn { margin-left:auto; color: var(--color-subtle); }
+    .ud-title { font-size:1.125rem; font-weight:700; margin:0 0 var(--space-sm) 0; color:#0f172a; }
+    .ud-item-title { font-weight:700; color: var(--color-text); font-size:1rem; }
+    .ud-item-title.small { font-size:0.95rem; color: var(--color-subtle); }
     .ud-field { width:160px; }
-    .ud-input { width:120px; padding:6px 8px; border:1px solid #e5e7eb; border-radius:6px; font-size:0.95rem; }
-    .ud-error { color:#b91c1c; }
-    .ud-label-pop { font-weight:700; color:#083344; font-size:0.95rem; background: linear-gradient(90deg,#ecfeff,#eef2ff); padding:6px 10px; border-radius:8px; box-shadow:0 2px 6px rgba(2,6,23,0.06); display:inline-block; }
-    .ud-field-wrap { display:flex; flex-direction:column; gap:6px; }
+    .ud-input { width:120px; padding:var(--space-xs) var(--space-sm); border:1px solid var(--color-border); border-radius:var(--radius-sm); font-size:0.95rem; }
+    .ud-error { color: var(--color-danger); }
+    .ud-label-pop { font-weight:700; color:#083344; font-size:0.95rem; background: linear-gradient(90deg,var(--bg-pale),var(--bg-info)); padding:var(--space-xs) var(--space-sm); border-radius:var(--radius-md); box-shadow:0 2px 6px rgba(2,6,23,0.06); display:inline-block; }
+    .ud-field-wrap { display:flex; flex-direction:column; gap:var(--space-xs); }
     .sr-only { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-    .ud-error-multiple { color:#7f1d1d; padding:8px; background:#fee2e2; border-radius:6px; }
-    .ud-error-mismatch { color:#92400e; padding:12px; background:#fff7ed; border:1px solid #fcd34d; border-radius:6px; margin-top:8px; }
+    .ud-error-multiple { color:#7f1d1d; padding:8px; background: var(--bg-danger); border-radius:6px; }
+    .ud-error-mismatch { color:#92400e; padding:12px; background: var(--bg-warning); border:1px solid #fcd34d; border-radius:6px; margin-top:var(--space-sm); }
     .ud-table { width:100%; border-collapse:collapse; font-size:0.95rem; table-layout:fixed; }
-    .ud-th { padding:10px 8px; text-align:left; font-weight:600; background:#eef7ff; border-bottom:1px solid #dbeafe; }
-    .ud-td { padding:10px 8px; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+    .ud-th { padding:10px 8px; text-align:left; font-weight:600; background: var(--bg-info); border-bottom:1px solid rgba(219,234,254,0.9); }
+    .ud-td { padding:10px 8px; border-bottom:1px solid var(--color-surface-3); vertical-align:middle; }
     /* Column sizing for consistent alignment */
     .ud-table th:nth-child(1), .ud-table td:nth-child(1) { width:60px; text-align:center; }
     .ud-table th:nth-child(2), .ud-table td:nth-child(2) { width:28%; }
@@ -150,7 +153,7 @@ import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instanc
     .ud-table th:nth-child(4), .ud-table td:nth-child(4) { width:140px; }
     .ud-table th:nth-child(5), .ud-table td:nth-child(5) { width:80px; text-align:center; }
     .ud-input { width:100%; box-sizing:border-box; }
-    .ud-row-selected { background:#f8fbff; }
+    .ud-row-selected { background: #f8fbff; }
     .ud-row-depleted { opacity:0.45; }
     /* make checkbox cell easier to click */
     .ud-checkbox-wrap { display:flex; align-items:center; justify-content:center; width:100%; height:100%; padding:6px; box-sizing:border-box; }
@@ -159,9 +162,9 @@ import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instanc
     .ud-table tbody tr .ud-td.center { cursor:pointer; }
     .ud-table tbody tr .ud-td.center input[type="checkbox"] { cursor:pointer; }
     .center { text-align:center; }
-    .ud-cancel { color:#374151; }
-    .ud-save { background:#0ea5e9; color:white; }
-    ::ng-deep .mat-form-field-appearance-fill .mat-mdc-form-field-flex { background: #fff; border-radius:6px; }
+    .ud-cancel { color: var(--color-subtle); }
+    .ud-save { background: linear-gradient(90deg,var(--color-primary),var(--color-primary-600)); color:white; }
+    ::ng-deep .mat-form-field-appearance-fill .mat-mdc-form-field-flex { background: var(--color-surface); border-radius:var(--radius-sm); }
     `]
 })
 /**
@@ -180,12 +183,14 @@ export class UsageDialogComponent {
   error: string | null = null;
   // Validation message shown during review when selection rules fail
   errorMultiple: string | null = null;
+  // Non-blocking warning shown during review when counted > required but selections equal required
+  warningMultiple: string | null = null;
   // Indices the user has 'Checked' (left column) in the review table
   selectedIndices: Set<number> = new Set();
   // Map of instance index -> availability (true = present, false = not present)
   itemAvailability: Map<number, boolean> = new Map();
-  // Editable expiry dates keyed by instance index
-  editableDates: Record<number, string> = {};
+  // Editable expiry dates keyed by instance index (store Date objects for datepicker)
+  editableDates: Record<number, Date | null> = {};
   // Help panel toggle
   showHelp: boolean = true;
   // Current dialog step
@@ -203,13 +208,21 @@ export class UsageDialogComponent {
     private dialogRef: MatDialogRef<UsageDialogComponent>,
     private matDialog: MatDialog,
     private cdr: ChangeDetectorRef,
-    @Inject(MAT_DIALOG_DATA) public data: { item: any; instances?: any[]; isMultipleRequired?: boolean }
+    @Inject(MAT_DIALOG_DATA) public data: { item: Item; instances?: Variant[]; isMultipleRequired?: boolean; onReplaceImmediate?: Function }
   ) {
     this.used = 0;
     // Initialize all items as available by default and copy their expiry dates
     if (this.data.instances) {
       this.initInstanceState(this.data.instances);
     }
+  }
+
+  private parseDate(dateString: string | Date | null | undefined): Date | null {
+    return parseAnyDate(dateString);
+  }
+
+  private formatDate(d: Date | null): string {
+    return formatDDMMYYYY(d) || '';
   }
 
   toggleHelp() {
@@ -234,16 +247,15 @@ export class UsageDialogComponent {
       this.data.instances = generateInstances(this.data.item || {});
     }
 
-    // Special-case: required (one or more) but counted 0 -> show depleted notice and continue to review
-    if (q >= 1 && this.used === 0) {
-      const msg = `Entered count (${this.used}) is less than required (${q}). Item appears depleted.`;
-      this.depletionNotice = msg;
-      this.startedDepleted = true;
-      return;
-    }
-
-    // If entered count differs from controlQuantity, show inline alert and allow Skip
+    // If entered count differs from controlQuantity, handle depleted (count=0) specially
+    // otherwise show an inline mismatch message and allow the user to Skip/Continue.
     if (typeof q === 'number' && this.used !== q) {
+      if (q >= 1 && this.used === 0) {
+        this.depletionNotice = `Entered count (${this.used}) is less than required (${q}). Item appears depleted.`;
+        this.startedDepleted = true;
+        return;
+      }
+
       const reason: 'low' | 'high' = this.used < q ? 'low' : 'high';
       const msg = this.used < q
         ? `Entered count (${this.used}) is less than required (${q}). Recount the trolley and check for hidden or stacked items. Click "Cancel" to change the count, or "Skip and continue" to proceed to the review and mark items manually.`
@@ -332,7 +344,8 @@ export class UsageDialogComponent {
     this.editableDates = {};
     instances.forEach((inst: any, idx: number) => {
       this.setInstancePresent(idx, true);
-      this.editableDates[idx] = inst.expiryDate ?? '';
+      const parsed = this.parseDate(inst.expiryDate ?? null);
+      this.editableDates[idx] = parsed; // keep Date|null for datepicker
     });
   }
 
@@ -360,7 +373,8 @@ export class UsageDialogComponent {
     const instances = this.data.instances || [];
     instances[index] = { ...(instances[index] || {}), ...(newData || {}) };
     // ensure editable date updated
-    this.editableDates[index] = instances[index].expiryDate ?? this.editableDates[index];
+    const parsed = this.parseDate(instances[index].expiryDate ?? null);
+    this.editableDates[index] = parsed ?? (this.editableDates[index] ?? null);
     // reassign array to trigger change detection consumers
     this.data.instances = [...instances];
   }
@@ -402,7 +416,9 @@ export class UsageDialogComponent {
   openInstanceDetail(index: number) {
     const inst = (this.data.instances || [])[index];
     if (!inst) return;
-    this.matDialog.open(InstanceDetailDialogComponent, { data: { name: inst.name, category: inst.category }, width: '380px' });
+    const safeName = (inst as any).name ?? (inst as any).description ?? (this.data?.item?.name ?? 'Item');
+    const safeCategory = (inst as any).category ?? (this.data?.item?.category ?? '');
+    this.matDialog.open(InstanceDetailDialogComponent, { data: { name: safeName, category: safeCategory }, width: '380px' });
   }
 
   private closeResult(payload?: any) {
@@ -411,16 +427,15 @@ export class UsageDialogComponent {
 
   getStatusColor(status: string): string {
     const colorMap: Record<string, string> = {
-      'OK': '#16a34a',
-      'Missing': '#ef4444',
-      'Expired': '#991b1b',
-      'satisfactory': '#16a34a',
-      'depleted': '#ef4444',
-      'insufficient': '#f97316',
-      'excessive': '#0ea5e9',
-      'expired': '#991b1b'
+      'pending': 'var(--color-warning)',
+      'Expired': 'var(--color-danger)',
+      'satisfactory': 'var(--color-success)',
+      'depleted': 'var(--color-danger)',
+      'insufficient': 'var(--color-warning)',
+      'excessive': 'var(--color-primary)',
+      'expired': 'var(--color-danger)'
     };
-    return colorMap[status] || '#6b7280';
+    return colorMap[status] || 'var(--color-muted)';
   }
 
   save() {
@@ -437,22 +452,48 @@ export class UsageDialogComponent {
         if (presentIndices.length === 0) {
           // indicate there are no available items and all required are not available
           const req = this.data.item?.controlQuantity ?? 0;
-          this.closeResult({ used: 0, updatedDates: this.editableDates, availableCount: 0, notAvailableCount: req });
+          this.closeResult({ used: 0, updatedDates: this.formatEditableDates(), availableCount: 0, notAvailableCount: req });
+          return;
+        }
+      }
+      // Determine effective required count: prefer the user-entered `used` when provided
+      const effectiveRequired = this.startedDepleted ? 0 : ((typeof this.used === 'number' && this.used >= 0) ? this.used : required);
+
+      // Count how many instances are present (available) and how many are both present+checked
+      const instancesAll = Array.isArray(this.data.instances) ? this.data.instances : [];
+      const presentIndicesAll = instancesAll.map((_, idx) => idx).filter(i => this.itemAvailability.get(i) !== false);
+      const presentCount = presentIndicesAll.length;
+      const selectedAndPresentCount = presentIndicesAll.filter(i => this.selectedIndices.has(i)).length;
+
+      // Clear prior messages
+      this.errorMultiple = null;
+      this.warningMultiple = null;
+
+      // If not started depleted, require the user to mark at least `effectiveRequired` rows present+checked
+      if (!this.startedDepleted && effectiveRequired > 0 && selectedAndPresentCount < effectiveRequired) {
+        // Special case: counted more than controlQuantity but user has selected exactly the controlQuantity.
+        // Show a non-blocking warning and allow confirmation.
+        if (effectiveRequired > required && selectedAndPresentCount === required) {
+          this.warningMultiple = `Entered count (${effectiveRequired}) is greater than required (${required}). You have marked ${required} items present — remove extras from the trolley if applicable, or confirm to proceed.`;
+          // do not return; allow confirmation
+        } else {
+          this.errorMultiple = `Please mark ${effectiveRequired} item(s) present and checked. Currently marked: ${selectedAndPresentCount}`;
           return;
         }
       }
 
-      // Otherwise validate selection as normal (skip when this flow began depleted)
-      if (!this.startedDepleted && !this.validateSelection(required)) return;
+      // availableCount should reflect how many items are both present and checked
+      const availableCount = selectedAndPresentCount;
+      const notAvailableCount = Math.max(0, effectiveRequired - selectedAndPresentCount);
 
-      // Count how many instances are present (available) across all rows
-      const instancesAll = Array.isArray(this.data.instances) ? this.data.instances : [];
-      const presentIndicesAll = instancesAll.map((_, idx) => idx).filter(i => this.itemAvailability.get(i) !== false);
-      const availableCount = presentIndicesAll.length;
-      const notAvailableCount = Math.max(0, required - availableCount);
+      // Provide explicit indices so callers can mark which per-instance entries were present
+      const presentAndCheckedIndices = presentIndicesAll.filter(i => this.selectedIndices.has(i));
+      const allIndices = instancesAll.map((_, idx) => idx);
+      const depletedIndices = allIndices.filter(i => presentAndCheckedIndices.indexOf(i) === -1);
 
-      // Return used as number of available items and include availability counts
-      this.closeResult({ used: availableCount, availableCount, notAvailableCount, updatedDates: this.editableDates });
+      // Return `used` as the effective available count and include index lists so callers
+      // can update per-instance availability / replacement flags in the inventory model.
+      this.closeResult({ used: availableCount, availableCount, notAvailableCount, updatedDates: this.formatEditableDates(), availableIndices: presentAndCheckedIndices, depletedIndices });
       return;
     }
 
@@ -467,7 +508,7 @@ export class UsageDialogComponent {
 
       // If nothing marked present, allow confirm (used: 0)
       if (presentCount === 0) {
-        this.closeResult({ used: 0, updatedDates: this.editableDates });
+        this.closeResult({ used: 0, updatedDates: this.formatEditableDates() });
         return;
       }
 
@@ -478,7 +519,7 @@ export class UsageDialogComponent {
       }
 
       // Present items are also Checked — accept and return presentCount
-      this.closeResult({ used: presentCount, updatedDates: this.editableDates });
+      this.closeResult({ used: presentCount, updatedDates: this.formatEditableDates() });
       return;
     }
 
@@ -496,5 +537,15 @@ export class UsageDialogComponent {
 
   close() {
     this.closeResult();
+  }
+
+  private formatEditableDates(): Record<number, string | null> {
+    const out: Record<number, string | null> = {};
+    for (const k of Object.keys(this.editableDates)) {
+      const idx = Number(k);
+      const d = this.editableDates[idx];
+      out[idx] = d ? (formatDDMMYYYY(d) || null) : null;
+    }
+    return out;
   }
 }

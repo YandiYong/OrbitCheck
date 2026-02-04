@@ -1,0 +1,73 @@
+/* Central theme variables (CSS custom properties + SCSS fallbacks)
+   Designers can tune colors & spacing here. */
+
+:root {
+  /* Primary palette */
+  --color-primary: #0ea5e9; /* sky-500 */
+  --color-primary-600: #0369a1; /* sky-700 */
+  --color-primary-50: #ecfeff;
+
+  /* Semantic colors */
+  --color-success: #16a34a;
+  --color-danger: #b91c1c;
+  --color-warning: #f59e0b;
+  --color-info: #2563eb;
+
+  /* Neutrals / text */
+  --color-text: #111827;
+  --color-muted: #6b7280;
+  --color-subtle: #374151;
+
+  /* Surfaces & borders */
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-bg: #f3f6f9;
+  --color-border: #e5e7eb;
+
+  /* Background variants for semantic surfaces */
+  --bg-warning: #fff7ed;
+  --bg-danger: #fff1f2;
+  --bg-success: #ecfdf5;
+  --bg-info: #eef2ff;
+  --bg-pale: #f8fafc;
+  --color-surface-3: #f3f4f6;
+
+  /* Spacing scale */
+  --space-xxs: 4px;
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  /* Radius & shadows */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --card-shadow: 0 6px 12px rgba(3,105,161,0.12);
+}
+
+/* Optional SCSS variables for legacy usage in component SCSS files */
+$color-primary: var(--color-primary);
+$color-primary-600: var(--color-primary-600);
+$color-success: var(--color-success);
+$color-danger: var(--color-danger);
+$color-warning: var(--color-warning);
+$color-info: var(--color-info);
+$color-text: var(--color-text);
+$color-muted: var(--color-muted);
+$color-surface: var(--color-surface);
+$color-border: var(--color-border);
+
+// background tokens
+$bg-warning: var(--bg-warning);
+$bg-danger: var(--bg-danger);
+$bg-success: var(--bg-success);
+$bg-info: var(--bg-info);
+$bg-pale: var(--bg-pale);
+$color-surface-3: var(--color-surface-3);
+
+// spacing
+$space-xs: var(--space-xs);
+$space-sm: var(--space-sm);
+$space-md: var(--space-md);
+$space-lg: var(--space-lg);

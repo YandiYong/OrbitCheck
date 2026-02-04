@@ -11,64 +11,52 @@ import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { DetailsDialogComponent } from '../details-dialog/details-dialog.component';
+import { parseAnyDate, isBeforeToday } from '../../utils/date-utils';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
   imports: [CommonModule, MatListModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatDividerModule, FormsModule, MatCardModule, MatDialogModule],
   template: `
-     <mat-card style="margin-bottom:12px; padding:12px;">
+    <mat-card style="margin-bottom:var(--space-md); padding:var(--space-md);">
       <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
         <div>
           <div style="font-weight:700;">Check List Summary</div>
-          <div style="font-size:0.85rem; color:#6b7280;">Quick overview of the Checklist</div>
+          <div style="font-size:0.85rem; color:var(--color-muted);">Quick overview of the Checklist</div>
         </div>
       </div>
 
-      <div style="display:flex; gap:10px; margin-top:12px; flex-direction:column; flex-wrap:nowrap; align-items:stretch; overflow:auto;">
+      <div style="display:flex; gap:10px; margin-top:var(--space-md); flex-direction:column; flex-wrap:nowrap; align-items:stretch; overflow:auto;">
         <mat-card style="flex:1 1 0; min-width:0; display:flex; align-items:stretch; cursor:pointer;" (click)="openExpired()">
           <mat-card-content style="display:flex; align-items:center; gap:12px;">
-            <div style="width:52px; height:52px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:#f3f4f6; border-left:6px solid #b91c1c;">
-              <mat-icon style="color:#b91c1c;">block</mat-icon>
+            <div style="width:52px; height:52px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--color-surface-3); border-left:6px solid var(--color-danger);">
+              <mat-icon style="color:var(--color-danger);">block</mat-icon>
             </div>
             <div>
               <div style="font-weight:700;">Expired:</div>
-              <div style="color:#b91c1c;">{{ expiredItems.length }} item(s)</div>
+              <div style="color:var(--color-danger);">{{ expiredItems.length }} item(s)</div>
             </div>
           </mat-card-content>
         </mat-card>
         <mat-card style="flex:1 1 0; min-width:0; display:flex; align-items:stretch; cursor:pointer;" (click)="openDepleted()">
           <mat-card-content style="display:flex; align-items:center; gap:12px;">
-            <div style="width:52px; height:52px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:#fee2e2; border-left:6px solid #b91c1c;">
-              <mat-icon style="color:#b91c1c;">remove_circle</mat-icon>
+            <div style="width:52px; height:52px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--bg-danger); border-left:6px solid var(--color-danger);">
+              <mat-icon style="color:var(--color-danger);">remove_circle</mat-icon>
             </div>
             <div>
               <div style="font-weight:700;">Depleted:</div>
-              <div style="color:#b91c1c;">{{ depletedItems.length }} item(s)</div>
+              <div style="color:var(--color-danger);">{{ depletedItems.length }} item(s)</div>
             </div>
           </mat-card-content>
         </mat-card>
-
-        <mat-card style="flex:1 1 0; min-width:0; display:flex; align-items:stretch; cursor:pointer;" (click)="openExcessive()">
-          <mat-card-content style="display:flex; align-items:center; gap:12px;">
-            <div style="width:52px; height:52px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:#dbeafe; border-left:6px solid #3b82f6;">
-              <mat-icon style="color:#3b82f6;">add_circle</mat-icon>
-            </div>
-            <div>
-              <div style="font-weight:700;">Excessive:</div>
-              <div style="color:#3b82f6;">{{ excessiveItems.length }} item(s)</div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
         <mat-card style="flex:1 1 0; min-width:0; display:flex; align-items:stretch; cursor:pointer;" (click)="openInsufficient()">
           <mat-card-content style="display:flex; align-items:center; gap:12px;">
-            <div style="width:52px; height:52px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:#fef3c7; border-left:6px solid #f59e42;">
-              <mat-icon style="color:#f59e42;">warning</mat-icon>
+            <div style="width:52px; height:52px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--bg-warning); border-left:6px solid var(--color-warning);">
+              <mat-icon style="color:var(--color-warning);">warning</mat-icon>
             </div>
             <div>
               <div style="font-weight:700;">Insufficient:</div>
-              <div style="color:#f59e42;">{{ insufficientItems.length }} item(s)</div>
+              <div style="color:var(--color-warning);">{{ insufficientItems.length }} item(s)</div>
             </div>
           </mat-card-content>
         </mat-card>
@@ -112,30 +100,10 @@ import { DetailsDialogComponent } from '../details-dialog/details-dialog.compone
 })
 export class SidebarComponent {
       get expiredItems() {
-        const now = new Date();
-        return this.items.filter(i => {
-          if (!i.expiryDate) return false;
-          const d = this.parseExpiry(i.expiryDate);
-          return d ? d < now : false;
-        });
+        return this.items.filter(i => i.expiryDate && isBeforeToday(i.expiryDate));
       }
 
-      private parseExpiry(dateString: string): Date | null {
-        if (!dateString) return null;
-        if (dateString.indexOf('-') >= 0) {
-          const d = new Date(dateString);
-          return isNaN(d.getTime()) ? null : d;
-        }
-        const parts = dateString.split('/');
-        if (parts.length === 3) {
-          const day = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10);
-          const year = parseInt(parts[2], 10);
-          const d = new Date(year, month - 1, day);
-          return isNaN(d.getTime()) ? null : d;
-        }
-        return null;
-      }
+      private parseExpiry(dateString: string): Date | null { return parseAnyDate(dateString); }
 
       openExpired() {
         if (!this.expiredItems.length) return;

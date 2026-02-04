@@ -1,11 +1,13 @@
-/* You can add global styles to this file, and also import other style files */
+/* Global stylesheet. Theme variables are defined in src/styles/_theme.scss */
+@import './styles/_theme.scss';
+
 /* Fix transparent overlays */
 .cdk-overlay-pane {
   opacity: 1 !important;
 }
 
 .mat-mdc-menu-panel {
-  background-color: white !important;
+  background-color: var(--color-surface) !important;
   opacity: 1 !important;
 }
 
@@ -14,11 +16,17 @@
 }
 
 .mat-calendar {
-  background-color: white !important;
+  background-color: var(--color-surface) !important;
   opacity: 1 !important;
 }
 
 .mat-datepicker-container {
-  background-color: white !important;
+  background-color: var(--color-surface) !important;
   opacity: 1 !important;
+}
+
+/* App-level background */
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
 }

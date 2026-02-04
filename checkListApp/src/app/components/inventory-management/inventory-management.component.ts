@@ -17,6 +17,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
 import { Item } from '../../models/item';
+import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
 import { DailyChecklistService } from '../../services/daily-checklist.service';
 import { InventoryApiService } from '../../services/inventory-api.service';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
@@ -79,18 +80,18 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     </div>
   </mat-toolbar>
     <div *ngIf="loading()" style="padding:8px 12px;">
-      <mat-card style="background:#fff9db; color:#92400e;">Loading inventory from API…</mat-card>
+      <mat-card style="background:var(--bg-warning); color:var(--color-warning);">Loading inventory from API…</mat-card>
     </div>
     <div *ngIf="apiError()" style="padding:8px 12px;">
-      <mat-card style="background:#fee2e2; color:#7f1d1d;">
+      <mat-card style="background:var(--bg-danger); color:var(--color-danger);">
         <div style="font-weight:700;">API Error</div>
         <div style="margin-top:6px;">{{ apiError() }}</div>
-        <div *ngIf="showingCached()" style="margin-top:8px; font-size:0.9rem; color:#4b5563;">Showing cached snapshot for today.</div>
+        <div *ngIf="showingCached()" style="margin-top:var(--space-sm); font-size:0.9rem; color:#4b5563;">Showing cached snapshot for today.</div>
       </mat-card>
     </div>
-  <div style="display:flex; gap:16px; padding:12px;">
+  <div style="display:flex; gap:var(--space-lg); padding:var(--space-md);">
     <mat-sidenav-container style="height:calc(100vh - 64px); width:100%;">
-      <mat-sidenav mode="side" opened style="width:260px; padding:12px; background:white; box-shadow:0 6px 18px rgba(16,24,40,0.06);">
+      <mat-sidenav mode="side" opened style="width:260px; padding:var(--space-md); background:var(--color-surface); box-shadow:0 6px 18px rgba(16,24,40,0.06);">
         <app-sidebar
           [categories]="categories()"
           [selectedCategory]="selectedCategory()"
@@ -101,8 +102,8 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
         </app-sidebar>
       </mat-sidenav>
 
-      <mat-sidenav-content style="padding:8px 16px;">
-        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:12px;">
+      <mat-sidenav-content style="padding:var(--space-sm) var(--space-lg);">
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-md); margin-bottom:var(--space-md);">
           <app-stats-card [count]="expiringSoonCount()" title="Expiring in the next 3 months" subtitle="Due for ordering" [subtitleColor]="'#f97316'" borderColor="#f97316" (clicked)="openDetailsForType('expiring')"></app-stats-card>
           <app-stats-card [count]="replacedThisMonthCount()" title="Replacements" subtitle="Replaced items" [subtitleColor]="'#0284c7'" borderColor="#0284c7" (clicked)="openDetailsForType('replaced')"></app-stats-card>
           <app-stats-card [count]="getChecklistStats().checked" title="Checklists Completed" borderColor="#7c3aed" (clicked)="openDetailsForType('checklist')">
@@ -115,21 +116,21 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
           
         
         <mat-card style="width:320px; margin-left:1300px; display:inline-block; vertical-align:top;">
-          <mat-form-field appearance="fill" style="width:100%; background:white; border-radius:6px; padding:6px 8px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+          <mat-form-field appearance="fill" style="width:100%; background:var(--color-surface); border-radius:var(--radius-sm); padding:var(--space-xs) var(--space-sm); box-shadow:0 1px 2px rgba(0,0,0,0.04);">
             <mat-label>Session</mat-label>
             <mat-select [value]="selectedSession()" (selectionChange)="selectedSession.set($event.value)">
               <mat-option *ngFor="let s of sessionTypes" [value]="s.key">{{s.label}}</mat-option>
             </mat-select>
           </mat-form-field>
           <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-            <button mat-flat-button (click)="startSession()" *ngIf="!activeSession()" style="background:#16a34a; color:white;">Start</button>
-            <button mat-flat-button (click)="finishSession()" *ngIf="activeSession()" style="background:#b91c1c; color:white;">Finish</button>
-            <div *ngIf="activeSession()" style="margin-left:8px; font-weight:700;">{{ getSessionElapsed() }}</div>
+            <button mat-flat-button (click)="startSession()" *ngIf="!activeSession()" style="background:var(--color-success); color:white;">Start</button>
+            <button mat-flat-button (click)="finishSession()" *ngIf="activeSession()" style="background:var(--color-danger); color:white;">Finish</button>
+            <div *ngIf="activeSession()" style="margin-left:var(--space-sm); font-weight:700;">{{ getSessionElapsed() }}</div>
           </div>
         </mat-card>
         
-        <mat-card style="background:white; box-shadow:0 8px 30px rgba(2,6,23,0.04);">
-          <mat-card-header style="background:#e8f4ff;">
+        <mat-card style="background:var(--color-surface); box-shadow:0 8px 30px rgba(2,6,23,0.04);">
+          <mat-card-header style="background:var(--bg-info);">
             <mat-card-title>Item List</mat-card-title>
             <mat-card-subtitle style="margin-left:8px; color:#374151; font-size:0.9rem;">Total: {{filteredInventory().length}} • Shown: {{dateFilteredItems().length}}</mat-card-subtitle>
           </mat-card-header>
@@ -269,8 +270,9 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           if (candidates.length === 0) return null;
 
           // parse candidates into timestamps, prefer valid dates
+          // Use the component's `parseDate` to avoid ambiguous `Date.parse` behaviour
           const parsed = candidates
-            .map(s => ({ raw: s, t: Date.parse(String(s)) }))
+            .map(s => ({ raw: s, t: (this.parseDate(String(s)) ? this.parseDate(String(s))!.getTime() : NaN) }))
             .filter(x => !isNaN(x.t));
           if (parsed.length > 0) {
             parsed.sort((a, b) => a.t - b.t);
@@ -288,27 +290,36 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
           let expiryDateFormatted: string | null = null;
           if (primaryExpiry) {
-            const parsed = new Date(primaryExpiry);
-            if (!isNaN(parsed.getTime())) {
-              expiryDateFormatted = `${pad(parsed.getDate())}/${pad(parsed.getMonth() + 1)}/${parsed.getFullYear()}`;
-            } else if (String(primaryExpiry).indexOf('-') >= 0) {
-              const p = String(primaryExpiry).split('-');
-              if (p.length === 3) expiryDateFormatted = `${p[2]}/${p[1]}/${p[0]}`;
-              else expiryDateFormatted = String(primaryExpiry);
+            // Try to parse dd/MM/yyyy first (project format). Fall back to Date.parse for ISO-like strings.
+            const parsedFromFormat = this.parseDate(String(primaryExpiry));
+            if (parsedFromFormat) {
+              expiryDateFormatted = `${pad(parsedFromFormat.getDate())}/${pad(parsedFromFormat.getMonth() + 1)}/${parsedFromFormat.getFullYear()}`;
             } else {
-              expiryDateFormatted = String(primaryExpiry);
+              const parsedFallback = this.parseDate(String(primaryExpiry));
+              if (parsedFallback) {
+                expiryDateFormatted = `${pad(parsedFallback.getDate())}/${pad(parsedFallback.getMonth() + 1)}/${parsedFallback.getFullYear()}`;
+              } else if (String(primaryExpiry).indexOf('-') >= 0) {
+                const p = String(primaryExpiry).split('-');
+                if (p.length === 3) expiryDateFormatted = `${p[2]}/${p[1]}/${p[0]}`;
+                else expiryDateFormatted = String(primaryExpiry);
+              } else {
+                expiryDateFormatted = String(primaryExpiry);
+              }
             }
           }
 
-          const ctrlQty = it.controlQuantity ?? it.quantity ?? 1;
+          const ctrlQty = it.controlQuantity ?? 1;
           // normalize variants expiry dates to dd/MM/yyyy for consistent display
           let normalizedVariants: any[] | undefined = undefined;
           const rawVariantsForNormalise = Array.isArray(it.variants) ? it.variants : (Array.isArray(it.items) ? it.items : undefined);
           if (Array.isArray(rawVariantsForNormalise)) {
             normalizedVariants = (rawVariantsForNormalise as any[]).map(v => {
               const dates = (Array.isArray(v.expiryDates) ? v.expiryDates : (v.expiryDate ? [v.expiryDate] : [])).filter(Boolean).map((d: any) => {
-                const parsed = new Date(d);
-                if (!isNaN(parsed.getTime())) return `${pad(parsed.getDate())}/${pad(parsed.getMonth() + 1)}/${parsed.getFullYear()}`;
+                // prefer project dd/MM/yyyy parsing
+                const parsedD = this.parseDate(String(d));
+                if (parsedD) return `${pad(parsedD.getDate())}/${pad(parsedD.getMonth() + 1)}/${parsedD.getFullYear()}`;
+                const parsedFallback = this.parseDate(String(d));
+                if (parsedFallback) return `${pad(parsedFallback.getDate())}/${pad(parsedFallback.getMonth() + 1)}/${parsedFallback.getFullYear()}`;
                 if (String(d).indexOf('-') >= 0) {
                   const p = String(d).split('-');
                   if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
@@ -444,26 +455,27 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     this.selectedCategory.set(name);
   }
 
-  private parseDate(dateString: string | Date | null): Date | null {
-    if (!dateString) return null;
-    if (dateString instanceof Date) return dateString;
-    const s = String(dateString);
-    // Parse dd/MM/yyyy format
-    const parts = s.split('/');
-    if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10);
-      const year = parseInt(parts[2], 10);
-      return new Date(year, month - 1, day);
+  private parseDate(dateString: string | Date | null): Date | null { return parseAnyDate(dateString); }
+
+  private formatDate(d: Date | null): string | null { return formatDDMMYYYY(d); }
+
+  private formatDateTime(d: Date | null): string | null {
+    if (!d) return null;
+    try {
+      // Format using Africa/Johannesburg time zone to produce SAST local time
+      const opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Africa/Johannesburg' };
+      const s = new Intl.DateTimeFormat('en-GB', opts).format(d);
+      // `s` is like '03/02/2026, 07:41:30' — normalize comma to space
+      return s.replace(',', '');
+    } catch (e) {
+      // fallback to naive local formatting
+      const pad = (n: number) => (n < 10 ? '0' + n : String(n));
+      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
-    // Fallback: try Date.parse
-    const parsed = new Date(s);
-    if (!isNaN(parsed.getTime())) return parsed;
-    return null;
   }
 
   // Open details dialog for a specific item
-  handleCheckboxClick(item: any) {
+ public handleCheckboxClick(item: any) {
     // prevent toggling if item is expired and awaiting replacement
     if (this.isExpired(item.expiryDate)) return;
 
@@ -485,7 +497,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           isMultipleRequired: true,
           onReplaceImmediate: (index: number, newInst: any) => {
             // Apply a replacement immediately to inventory for visual update
-            const now = new Date().toISOString();
+                const now = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
             this.inventory.update(items => items.map(i => {
               if (i.id !== item.id) return i;
               const required = i.controlQuantity ?? 0;
@@ -519,16 +531,35 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         const availableCount = res.availableCount || 0;
         const notAvailableCount = res.notAvailableCount || 0;
         const updatedDates = res.updatedDates || {};
+        const availableIndices: number[] = Array.isArray(res.availableIndices) ? res.availableIndices : [];
+        const depletedIndices: number[] = Array.isArray(res.depletedIndices) ? res.depletedIndices : [];
 
         this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
           const required = i.controlQuantity ?? 0;
-          const history = (i.usageHistory ?? []).concat([{ date: new Date().toISOString(), used: availableCount }]);
-          const now = new Date().toISOString();
+          const history = (i.usageHistory ?? []).concat([{ date: this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString()), used: availableCount }]);
+          const now = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
 
           // Determine if any per-item expiry was updated
           let hasReplacedDate = false;
           const origItems = Array.isArray((i as any).items) ? (i as any).items : (Array.isArray((i as any).variants) ? (i as any).variants : undefined);
+
+          // If the dialog returned per-instance indices, update per-instance availability flags so
+          // the main UI and the Replace dialog can show which instances are depleted and which are present.
+          if (Array.isArray(origItems) && origItems.length) {
+            for (let idx = 0; idx < origItems.length; idx++) {
+              const v = origItems[idx] as any;
+              // mark available / not available based on indices from the dialog
+              if (availableIndices.indexOf(idx) >= 0) {
+                v.available = true;
+                v.needsReplacement = false;
+              } else if (depletedIndices.indexOf(idx) >= 0) {
+                v.available = false;
+                // flag 'needsReplacement' so ReplaceDialog renders it visually as needing attention
+                v.needsReplacement = true;
+              }
+            }
+          }
 
           if (Array.isArray(origItems) && origItems.length) {
             for (let k = 0; k < instances.length; k++) {
@@ -541,20 +572,16 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
             }
           }
 
-          // Compute status
+          // Compute status based strictly on controlQuantity (required) and availableCount
           let status: string;
           if (this.isExpired(i.expiryDate)) {
             status = 'expired';
-          } else if (notAvailableCount > 0) {
+          } else {
             if (availableCount === 0) status = 'depleted';
             else if (availableCount < required) status = 'insufficient';
+            else if (availableCount === required) status = 'satisfactory';
+            else if (availableCount > required && availableCount <= required + 5) status = 'excessive';
             else status = 'satisfactory';
-          } else if (availableCount === required) {
-            status = 'satisfactory';
-          } else if (availableCount > required && availableCount <= required + 5) {
-            status = 'excessive';
-          } else {
-            status = 'satisfactory';
           }
 
           const newChecked = true;
@@ -571,6 +598,9 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
                 newItems[idx].expiryDate = newDate;
                 newItems[idx].replacementDate = now;
                 newItems[idx].isReplacement = true;
+                // once replaced, clear needsReplacement flag
+                newItems[idx].needsReplacement = false;
+                newItems[idx].available = true;
               }
             }
             newItem.items = newItems;
@@ -605,8 +635,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           // Do not change quantity, only usedToday and status
           const required = i.controlQuantity ?? 0;
           used = Math.max(0, used); // ensure non-negative
-          const history = (i.usageHistory ?? []).concat([{ date: new Date().toISOString(), used }]);
-          const now = new Date().toISOString();
+          const history = (i.usageHistory ?? []).concat([{ date: this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString()), used }]);
+          const now = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
           // Determine status based on usedToday and required (quantity)
           let status: string;
           if (this.isExpired(i.expiryDate)) {
@@ -636,9 +666,9 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         // if item has subitems, mark them checked too
         if ((i as any).syringes && Array.isArray((i as any).syringes)) {
           const syr = (i as any).syringes.map((s: any) => ({ ...s, checked: true }));
-          return { ...i, checked: true, status: 'satisfactory', checkedDate: new Date().toISOString(), syringes: syr };
+          return { ...i, checked: true, status: 'satisfactory', checkedDate: this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString()), syringes: syr };
         }
-        return { ...i, checked: true, status: 'satisfactory', checkedDate: new Date().toISOString() };
+        return { ...i, checked: true, status: 'satisfactory', checkedDate: this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString()) };
       } else {
         // second/next click: uncheck — clear checkedDate so history column is cleared
         // if item has subitems, clear their checked flags too
@@ -670,7 +700,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
       // Parent should be checked and have a checkedDate when subitem toggled
       copy.checked = true;
-      copy.checkedDate = new Date().toISOString();
+      copy.checkedDate = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
 
       // If any subitem is not available, parent becomes 'depleted'
       const anyNotAvailable = syr.some((s: any) => s.available === false);
@@ -714,7 +744,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
       // Support replacing per-item entries (formerly 'variants') returned as `items`
       if (result && Array.isArray(result.items)) {
-        const now = new Date().toISOString();
+        const now = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
         this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
           const origItems = Array.isArray(i.items) ? i.items : (Array.isArray(i.variants) ? i.variants : []);
@@ -780,8 +810,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     const s = this.activeSession();
     if (!s || !s.startTime) return '00:00:00';
     try {
-      const start = new Date(s.startTime);
-      const diff = Math.max(0, Math.floor((this.now().getTime() - start.getTime()) / 1000));
+      const start = this.parseDateTime(String(s.startTime)) ?? new Date(String(s.startTime));
+      const diff = Math.max(0, Math.floor((this.now().getTime() - (start ? start.getTime() : this.now().getTime())) / 1000));
       const hrs = Math.floor(diff / 3600);
       const mins = Math.floor((diff % 3600) / 60);
       const secs = diff % 60;
@@ -790,6 +820,34 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     } catch (e) {
       return '00:00:00';
     }
+  }
+
+  private parseDateTime(dateString: string | Date | null | undefined): Date | null {
+    if (!dateString) return null;
+    if (dateString instanceof Date) return dateString;
+    const s = String(dateString).trim();
+    if (s.indexOf('T') >= 0) {
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const parts = s.split(' ');
+    const dateParts = parts[0].split('/');
+    if (dateParts.length === 3) {
+      const day = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10);
+      const year = parseInt(dateParts[2], 10);
+      let hours = 0, minutes = 0, seconds = 0;
+      if (parts.length > 1) {
+        const t = parts[1];
+        const tparts = t.split(':');
+        if (tparts.length > 0) hours = parseInt(tparts[0], 10) || 0;
+        if (tparts.length > 1) minutes = parseInt(tparts[1], 10) || 0;
+        if (tparts.length > 2) seconds = parseInt(tparts[2], 10) || 0;
+      }
+      const d = new Date(year, month - 1, day, hours, minutes, seconds);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
   }
 
   // summary: previous day's items that were checked and not available

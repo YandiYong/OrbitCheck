@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
+import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
 import { Item } from '../../models/item';
 
 @Component({
@@ -24,7 +25,9 @@ import { Item } from '../../models/item';
 
         <mat-form-field appearance="fill">
           <mat-label>Expiry Date</mat-label>
-          <input matInput placeholder="dd/MM/yyyy" [(ngModel)]="expiryDateString" />
+          <input matInput [matDatepicker]="picker" placeholder="dd/MM/yyyy" [(ngModel)]="expiryDateObj" />
+          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
         </mat-form-field>
 
         <mat-form-field appearance="fill">
@@ -42,29 +45,39 @@ import { Item } from '../../models/item';
 })
 export class EditItemDialogComponent {
   name: string;
-  expiryDate: string | null;
+  expiryDate: string | Date | null;
+  expiryDateObj: Date | null;
   expiryDateString: string | null;
   quantity: number | null;
 
-  constructor(private dialogRef: MatDialogRef<EditItemDialogComponent>, @Inject(MAT_DIALOG_DATA) public data: { item: any }) 
+  constructor(private dialogRef: MatDialogRef<EditItemDialogComponent>, @Inject(MAT_DIALOG_DATA) public data: { item: Item }) 
   {
     this.name = data.item.name ?? '';
     this.expiryDate = data.item.expiryDate ?? null;
-    this.expiryDateString = this.normalizeToDdMmYyyy(this.expiryDate);
+    this.expiryDateObj = parseAnyDate(this.expiryDate);
+    this.expiryDateString = this.expiryDateObj ? formatDDMMYYYY(this.expiryDateObj) : (typeof this.expiryDate === 'string' ? this.expiryDate : null);
     this.quantity = data.item.controlQuantity ?? null;
   }
 
   save() {
-    // return the dd/MM/yyyy string
-    this.dialogRef.close({ name: this.name, expiryDate: this.expiryDateString, controlQuantity: this.quantity });
+    // return the dd/MM/yyyy string (use adapter/format helper)
+    const expiryStr = this.expiryDateObj ? formatDDMMYYYY(this.expiryDateObj) : null;
+    this.dialogRef.close({ name: this.name, expiryDate: expiryStr, controlQuantity: this.quantity });
   }
 
   close() {
     this.dialogRef.close();
   }
 
-  private normalizeToDdMmYyyy(dateStr: string | null): string | null {
-    if (!dateStr) return null;
+  private normalizeToDdMmYyyy(dateInput: string | Date | null): string | null {
+    if (!dateInput) return null;
+    if (dateInput instanceof Date) {
+      const d = dateInput.getDate().toString().padStart(2, '0');
+      const m = (dateInput.getMonth() + 1).toString().padStart(2, '0');
+      const y = dateInput.getFullYear();
+      return `${d}/${m}/${y}`;
+    }
+    const dateStr = dateInput as string;
     // if ISO format YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
     if (dateStr.indexOf('-') >= 0) {
       const parts = dateStr.split('T')[0].split('-');

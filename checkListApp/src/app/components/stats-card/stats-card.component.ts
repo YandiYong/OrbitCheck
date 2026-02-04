@@ -12,8 +12,8 @@ import { MatIconModule } from '@angular/material/icon';
       <mat-card-content style="display:flex; justify-content:space-between; align-items:center;">
         <div>
           <div style="font-size:2.2rem; font-weight:800;">{{count}}</div>
-          <div style="font-weight:600; color:#374151;">{{title}}</div>
-          <div *ngIf="subtitle" style="font-size:.85rem; color:{{subtitleColor}}; margin-top:6px;">{{subtitle}}</div>
+          <div style="font-weight:600; color:var(--color-subtle);">{{title}}</div>
+          <div *ngIf="subtitle" style="font-size:.85rem; color:{{subtitleColor}}; margin-top:var(--space-sm);">{{subtitle}}</div>
           <ng-content></ng-content>
         </div>
         
@@ -25,8 +25,8 @@ export class StatsCardComponent {
   @Input() count = 0;
   @Input() title = '';
   @Input() subtitle = '';
-  @Input() borderColor = '#000000';
-  @Input() subtitleColor = '#374151';
+  @Input() borderColor = 'var(--color-text)';
+  @Input() subtitleColor = 'var(--color-subtle)';
   @Input() clickable = true;
   @Output() clicked = new EventEmitter<void>();
 

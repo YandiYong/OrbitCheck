@@ -88,14 +88,14 @@ import { SignatureApiService } from './signature-api.service';
   `,
   styles: [
     `
-      .panel { padding: 16px; }
-      .panel-title { font-weight: 700; margin-bottom: 12px; }
-      .canvas-block label { display: block; margin-bottom: 8px; color: #555; }
-      .controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-      .canvas { width: 100%; border: 2px solid #e0e0e0; border-radius: 8px; background: #fff; touch-action: none; cursor: crosshair; }
-      .form-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 16px 0; }
+      .panel { padding: var(--space-lg); }
+      .panel-title { font-weight: 700; margin-bottom: var(--space-sm); }
+      .canvas-block label { display: block; margin-bottom: var(--space-xs); color: var(--color-muted); }
+      .controls { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+      .canvas { width: 100%; border: 2px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); touch-action: none; cursor: crosshair; }
+      .form-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-md); margin: var(--space-lg) 0; }
       @media (min-width: 768px) { .form-grid { grid-template-columns: 1fr 1fr; } }
-      .actions { display: flex; gap: 12px; }
+      .actions { display: flex; gap: var(--space-md); }
     `,
   ],
 })

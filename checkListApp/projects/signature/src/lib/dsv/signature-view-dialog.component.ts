@@ -32,10 +32,10 @@ export interface SignatureDialogData {
   `,
   styles: [
     `
-      .content { display: grid; grid-template-columns: 1fr; gap: 12px; }
-      .image-wrap { display: flex; align-items: center; justify-content: center; background: #fafafa; border: 1px solid #e0e0e0; padding: 12px; }
+      .content { display: grid; grid-template-columns: 1fr; gap: var(--space-md); }
+      .image-wrap { display: flex; align-items: center; justify-content: center; background: var(--bg-pale); border: 1px solid var(--color-border); padding: var(--space-md); }
       .image-wrap img { max-width: 100%; height: auto; }
-      .meta p { margin: 0; color: #555; }
+      .meta p { margin: 0; color: var(--color-muted); }
       @media (min-width: 640px) { .content { grid-template-columns: 1fr 1fr; } }
     `,
   ],
