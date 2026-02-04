@@ -99,7 +99,7 @@ import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-ut
                            (click)="$event.stopPropagation()"
                            [disabled]="instanceDisabled.has(i)" />
                     <div *ngIf="instanceDisabled.has(i)" style="margin-top:6px;">
-                      <button mat-stroked-button color="primary" (click)="$event.stopPropagation(); onAddInstance(i)">+</button>
+                      <button mat-flat-button color="accent" class="ud-add-btn" matTooltip="Replace this instance" aria-label="Replace instance" (click)="$event.stopPropagation(); onAddInstance(i)">+</button>
                     </div>
                   </td>
                 </tr>
@@ -162,6 +162,27 @@ import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-ut
     .ud-table tbody tr .ud-td.center { cursor:pointer; }
     .ud-table tbody tr .ud-td.center input[type="checkbox"] { cursor:pointer; }
     .center { text-align:center; }
+    /* Prominent, discoverable add-replacement button */
+    .ud-add-btn {
+      min-width:36px;
+      width:36px;
+      height:36px;
+      border-radius:50%;
+      padding:0;
+      font-weight:700;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow: 0 4px 10px rgba(2,6,23,0.12);
+      transform-origin:center;
+      animation: ud-pop 1100ms ease-in-out infinite alternate;
+      cursor: pointer;
+    }
+    .ud-add-btn:focus { outline: 3px solid rgba(34,197,94,0.18); }
+    @keyframes ud-pop {
+      from { transform: scale(1); box-shadow: 0 4px 10px rgba(2,6,23,0.12); }
+      to   { transform: scale(1.07); box-shadow: 0 8px 18px rgba(2,6,23,0.18); }
+    }
     .ud-cancel { color: var(--color-subtle); }
     .ud-save { background: linear-gradient(90deg,var(--color-primary),var(--color-primary-600)); color:white; }
     ::ng-deep .mat-form-field-appearance-fill .mat-mdc-form-field-flex { background: var(--color-surface); border-radius:var(--radius-sm); }
@@ -383,7 +404,14 @@ export class UsageDialogComponent {
   onAddInstance(index: number) {
     const inst = (this.data.instances || [])[index];
     if (!inst) return;
-    const ref = this.matDialog.open(ReplaceDialogComponent, { data: { item: inst }, width: '520px' });
+    // Pass a shallow clone containing only the instance fields so ReplaceDialog
+    // treats this as a single instance (not a multi-variant item).
+    const instClone: any = { ...inst };
+    // Remove collection fields that could make ReplaceDialog render variants
+    delete instClone.items;
+    delete instClone.variants;
+    delete instClone.expiryDates;
+    const ref = this.matDialog.open(ReplaceDialogComponent, { data: { item: instClone }, width: '520px' });
     ref.afterClosed().subscribe((res: any) => {
       console.log('Replace dialog closed, result:', res);
       if (!res) return;

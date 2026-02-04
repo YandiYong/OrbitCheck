@@ -125,7 +125,7 @@ import { parseAnyDate, isBeforeToday } from '../../utils/date-utils';
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:var(--space-lg);">Checked</th>
         <td mat-cell *matCellDef="let row" style="padding:var(--space-lg);">
           <div style="color:var(--color-subtle); font-weight:600;">
-            {{ row.item.checkedDate ? (row.item.checkedDate | date:'dd/MM/yyyy HH:mm a') : '-' }}
+            {{ row.item.checkedDate ? (row.item.checkedDate | date:'dd/MM/yyyy HH:mm':'Africa/Johannesburg') : '-' }}
           </div>
         </td>
       </ng-container>

@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { formatDateTimeSAST } from '../utils/date-utils';
 
 @Injectable({ providedIn: 'root' })
 export class DailyChecklistService {
@@ -17,17 +18,6 @@ export class DailyChecklistService {
     return `${day}/${m}/${y}`;
   }
 
-  private formatDateTime(d: Date | null): string | null {
-    if (!d) return null;
-    try {
-      const opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Africa/Johannesburg' };
-      const s = new Intl.DateTimeFormat('en-GB', opts).format(d);
-      return s.replace(',', '');
-    } catch (e) {
-      const pad = (n: number) => (n < 10 ? '0' + n : String(n));
-      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    }
-  }
 
   /**
    * Migrate legacy localStorage keys that used `dd-MM-yyyy` to the new `dd/MM/yyyy` format.
@@ -80,7 +70,7 @@ export class DailyChecklistService {
           let changed = false;
           for (const itm of arr) {
             if (itm && typeof itm === 'object') {
-              if (typeof itm.checkedDate === 'string' && itm.checkedDate.indexOf('T') >= 0) {
+                  if (typeof itm.checkedDate === 'string' && itm.checkedDate.indexOf('T') >= 0) {
                 const d = new Date(itm.checkedDate);
                 if (!isNaN(d.getTime())) {
                   itm.checkedDate = this.formatDate(d);
@@ -107,13 +97,13 @@ export class DailyChecklistService {
                 if (itm && typeof itm === 'object') {
                   if (typeof itm.checkedDate === 'string' && itm.checkedDate.indexOf('T') >= 0) {
                     const d = new Date(itm.checkedDate);
-                    if (!isNaN(d.getTime())) itm.checkedDate = this.formatDateTime(d);
+                    if (!isNaN(d.getTime())) itm.checkedDate = formatDateTimeSAST(d);
                   }
                   if (Array.isArray(itm.usageHistory)) {
                     for (const h of itm.usageHistory) {
                       if (h && typeof h.date === 'string' && h.date.indexOf('T') >= 0) {
                         const d = new Date(h.date);
-                        if (!isNaN(d.getTime())) h.date = this.formatDateTime(d);
+                        if (!isNaN(d.getTime())) h.date = formatDateTimeSAST(d);
                       }
                     }
                   }
@@ -176,7 +166,7 @@ export class DailyChecklistService {
     }
     const nowDate = new Date();
     const nowIso = nowDate.toISOString();
-    const nowLocal = this.formatDateTime(nowDate) ?? this.formatDate(nowDate);
+    const nowLocal = formatDateTimeSAST(nowDate) ?? this.formatDate(nowDate);
     const session = { id: `${sessionType}-${nowIso}`, type: sessionType, startTime: nowLocal, endTime: null, durationSeconds: null, snapshotStart: null, snapshotEnd: null };
     arr.push(session);
     try {
@@ -198,7 +188,7 @@ export class DailyChecklistService {
         const s = arr[i];
         if (s.type === sessionType && !s.endTime) {
           const nowDate = new Date();
-          s.endTime = this.formatDateTime(nowDate) ?? this.formatDate(nowDate);
+          s.endTime = formatDateTimeSAST(nowDate) ?? this.formatDate(nowDate);
           try {
             const start = this.parseDateTime(s.startTime) ?? new Date(s.startTime);
             const end = nowDate;
@@ -230,15 +220,15 @@ export class DailyChecklistService {
         if (s && typeof s === 'object') {
           if (typeof s.startTime === 'string' && s.startTime.indexOf('T') >= 0) {
             const d = new Date(s.startTime);
-            if (!isNaN(d.getTime())) {
-              s.startTime = this.formatDateTime(d);
+              if (!isNaN(d.getTime())) {
+              s.startTime = formatDateTimeSAST(d);
               changed = true;
             }
           }
           if (typeof s.endTime === 'string' && s.endTime.indexOf('T') >= 0) {
             const d = new Date(s.endTime);
-            if (!isNaN(d.getTime())) {
-              s.endTime = this.formatDateTime(d);
+              if (!isNaN(d.getTime())) {
+              s.endTime = formatDateTimeSAST(d);
               changed = true;
             }
           }

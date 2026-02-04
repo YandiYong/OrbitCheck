@@ -4,7 +4,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
-import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
+import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
 import { Item } from '../../models/item';
 // Use runtime `any` for items to match inventory JSON shape
 
@@ -109,7 +109,9 @@ export class DetailsDialogComponent {
   }
 
   public formatDateString(date: string | Date | null | undefined): string | null {
-    return formatDDMMYYYY(parseAnyDate(date));
+    // Use shared helpers to parse any incoming date shape and format strictly as dd/MM/yyyy
+    const parsed = parseAnyDate(date);
+    return formatDDMMYYYY(parsed);
   }
 
   getDisplayStatus(item: Item | null | undefined): string {

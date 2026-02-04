@@ -17,7 +17,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
 import { Item } from '../../models/item';
-import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
+import { parseAnyDate, formatDDMMYYYY, isBeforeToday, formatDateTimeSAST } from '../../utils/date-utils';
 import { DailyChecklistService } from '../../services/daily-checklist.service';
 import { InventoryApiService } from '../../services/inventory-api.service';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
@@ -459,20 +459,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
   private formatDate(d: Date | null): string | null { return formatDDMMYYYY(d); }
 
-  private formatDateTime(d: Date | null): string | null {
-    if (!d) return null;
-    try {
-      // Format using Africa/Johannesburg time zone to produce SAST local time
-      const opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Africa/Johannesburg' };
-      const s = new Intl.DateTimeFormat('en-GB', opts).format(d);
-      // `s` is like '03/02/2026, 07:41:30' — normalize comma to space
-      return s.replace(',', '');
-    } catch (e) {
-      // fallback to naive local formatting
-      const pad = (n: number) => (n < 10 ? '0' + n : String(n));
-      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    }
-  }
+  
 
   // Open details dialog for a specific item
  public handleCheckboxClick(item: any) {
@@ -497,7 +484,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           isMultipleRequired: true,
           onReplaceImmediate: (index: number, newInst: any) => {
             // Apply a replacement immediately to inventory for visual update
-                const now = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
+                const now = this.formatDate(new Date()) ?? new Date().toISOString();
             this.inventory.update(items => items.map(i => {
               if (i.id !== item.id) return i;
               const required = i.controlQuantity ?? 0;
@@ -537,8 +524,9 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
           const required = i.controlQuantity ?? 0;
-          const history = (i.usageHistory ?? []).concat([{ date: this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString()), used: availableCount }]);
-          const now = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
+          const nowIso = new Date().toISOString();
+          const history = (i.usageHistory ?? []).concat([{ date: nowIso, used: availableCount }]);
+          const now = nowIso;
 
           // Determine if any per-item expiry was updated
           let hasReplacedDate = false;
@@ -635,8 +623,9 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           // Do not change quantity, only usedToday and status
           const required = i.controlQuantity ?? 0;
           used = Math.max(0, used); // ensure non-negative
-          const history = (i.usageHistory ?? []).concat([{ date: this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString()), used }]);
-          const now = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
+          const nowIso = new Date().toISOString();
+          const history = (i.usageHistory ?? []).concat([{ date: nowIso, used }]);
+          const now = nowIso;
           // Determine status based on usedToday and required (quantity)
           let status: string;
           if (this.isExpired(i.expiryDate)) {
@@ -666,9 +655,9 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         // if item has subitems, mark them checked too
         if ((i as any).syringes && Array.isArray((i as any).syringes)) {
           const syr = (i as any).syringes.map((s: any) => ({ ...s, checked: true }));
-          return { ...i, checked: true, status: 'satisfactory', checkedDate: this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString()), syringes: syr };
+          return { ...i, checked: true, status: 'satisfactory', checkedDate: new Date().toISOString(), syringes: syr };
         }
-        return { ...i, checked: true, status: 'satisfactory', checkedDate: this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString()) };
+        return { ...i, checked: true, status: 'satisfactory', checkedDate: new Date().toISOString() };
       } else {
         // second/next click: uncheck — clear checkedDate so history column is cleared
         // if item has subitems, clear their checked flags too
@@ -700,7 +689,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
       // Parent should be checked and have a checkedDate when subitem toggled
       copy.checked = true;
-      copy.checkedDate = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
+      copy.checkedDate = this.formatDate(new Date()) ?? new Date().toISOString();
 
       // If any subitem is not available, parent becomes 'depleted'
       const anyNotAvailable = syr.some((s: any) => s.available === false);
@@ -744,7 +733,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
       // Support replacing per-item entries (formerly 'variants') returned as `items`
       if (result && Array.isArray(result.items)) {
-        const now = this.formatDateTime(new Date()) ?? (this.formatDate(new Date()) ?? new Date().toISOString());
+        const now = this.formatDate(new Date()) ?? new Date().toISOString();
         this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
           const origItems = Array.isArray(i.items) ? i.items : (Array.isArray(i.variants) ? i.variants : []);

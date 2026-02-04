@@ -42,3 +42,17 @@ export function isBeforeToday(dateLike: string | Date | null | undefined): boole
   today.setHours(0, 0, 0, 0);
   return d.getTime() < today.getTime();
 }
+
+// Format a Date as SAST-local datetime string (24-hour) e.g. '03/02/2026 07:41:30'
+export function formatDateTimeSAST(d: Date | null | undefined): string | null {
+  if (!d) return null;
+  try {
+    const opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Africa/Johannesburg' };
+    const s = new Intl.DateTimeFormat('en-GB', opts).format(d as Date);
+    return String(s).replace(',', '');
+  } catch (e) {
+    const pad = (n: number) => (n < 10 ? '0' + n : String(n));
+    const dd = d as Date;
+    return `${pad(dd.getDate())}/${pad(dd.getMonth() + 1)}/${dd.getFullYear()} ${pad(dd.getHours())}:${pad(dd.getMinutes())}:${pad(dd.getSeconds())}`;
+  }
+}
