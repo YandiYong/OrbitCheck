@@ -8,7 +8,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { FormsModule } from '@angular/forms';
 
-import { Item } from '../../models/item';
+// Runtime dialog data shape varies; use `any` to avoid adding fields to the `Item` model
 import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
 
 @Component({
@@ -41,16 +41,16 @@ import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
                     <tr style="text-align:left; border-bottom:1px solid #e5e7eb;">
                       <th style="padding:6px 8px;">Description</th>
                       <th style="padding:6px 8px;">Expiring Date</th>
-                      <th style="padding:6px 8px;">Replacement Date</th>
+                      <th style="padding:6px 8px;">Replacement Date1</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let v of variants; let vi = index" style="border-bottom:1px solid #f3f4f6;" [style.background]="v.isReplacement ? '#f3f4f6' : (v.needsReplacement ? '#fff7ed' : '')" [style.opacity]="v.isReplacement ? '0.6' : '1'" [style.pointerEvents]="v.isReplacement ? 'none' : 'auto'">
+                    <tr *ngFor="let v of variants; let vi = index" style="border-bottom:1px solid #f3f4f6;" [style.background]="(v.isReplacement || v.checked) ? '#f3f4f6' : (v.needsReplacement ? '#fff7ed' : '')" [style.opacity]="(v.isReplacement || v.checked) ? '0.6' : '1'" [style.pointerEvents]="(v.isReplacement || v.checked) ? 'none' : 'auto'">
                       <td style="padding:8px;">{{ v.description ?? '-' }}</td>
                       <td style="padding:8px; width:260px;">
                         <mat-form-field appearance="fill" style="width:220px;">
-                          <input matInput [matDatepicker]="picker" placeholder="dd/MM/yyyy" [(ngModel)]="v._expiryDateObj" (dateChange)="onVariantExpiryChanged(vi, $event)" [disabled]="v.isReplacement" />
-                          <mat-datepicker-toggle *ngIf="!v.isReplacement" matSuffix [for]="picker"></mat-datepicker-toggle>
+                          <input matInput [matDatepicker]="picker" placeholder="dd/MM/yyyy" [(ngModel)]="v._expiryDateObj" (dateChange)="onVariantExpiryChanged(vi, $event)" [disabled]="v.isReplacement || v.checked" />
+                          <mat-datepicker-toggle *ngIf="!v.isReplacement && !v.checked" matSuffix [for]="picker"></mat-datepicker-toggle>
                           <mat-datepicker #picker></mat-datepicker>
                         </mat-form-field>
                       </td>
@@ -88,15 +88,16 @@ export class ReplaceDialogComponent {
 
   constructor(
     private dialogRef: MatDialogRef<ReplaceDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { item: Item }
+    @Inject(MAT_DIALOG_DATA) public data: any
   ) {
     // initialize expiry date object from existing item expiry (expecting dd/MM/yyyy)
-    const d = (data.item && (data.item as any).expiryDate) ? (data.item as any).expiryDate : null;
+    const src = (data && data.item) ? data.item : data;
+    const d = (src && (src as any).expiryDate) ? (src as any).expiryDate : null;
     this.expiryDateObj = parseAnyDate(d);
     this.replacementDateString = formatDDMMYYYY(new Date()) || '';
 
     // prepare per-variant state when present
-    const vs = Array.isArray((data.item as any).variants) ? (data.item as any).variants : (Array.isArray((data.item as any).items) ? (data.item as any).items : undefined);
+    const vs = Array.isArray((src as any).variants) ? (src as any).variants : (Array.isArray((src as any).items) ? (src as any).items : undefined);
     if (Array.isArray(vs) && vs.length) {
       const today = this.replacementDateString;
       this.variants = vs.map((v: any) => {
@@ -107,7 +108,10 @@ export class ReplaceDialogComponent {
           description: v.description ?? v.size ?? v.unit ?? null,
           expiryDate: expiry,
           _expiryDateObj: parseAnyDate(expiry),
-          replacementDate: v.replacementDate ?? today
+          replacementDate: v.replacementDate ?? today,
+          // Treat any variant that is NOT greyed (not already replaced and not checked)
+          // as needing replacement so the dialog highlights it for attention.
+          needsReplacement: !!v.needsReplacement || (!(v.isReplacement || v.checked))
         };
       });
     }

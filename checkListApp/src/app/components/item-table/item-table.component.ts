@@ -5,8 +5,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { Item } from '../../models/item';
-import { parseAnyDate, isBeforeToday } from '../../utils/date-utils';
+import { isBeforeToday } from '../../utils/date-utils';
 
 @Component({
   selector: 'app-item-table',
@@ -94,7 +93,7 @@ import { parseAnyDate, isBeforeToday } from '../../utils/date-utils';
               </button>
             </mat-menu>
             <button mat-flat-button style="background:linear-gradient(90deg,var(--color-primary),var(--color-primary-600)); color:white; box-shadow:var(--card-shadow);"
-          *ngIf="(row.expired || ['expired','insufficient', 'depleted'].includes(row.item.status)) && (!(row.item.replacementDate) || ((row.item.controlQuantity ?? 0) > 1 && ((row.item.replacedCount ?? 0) < (row.item.controlQuantity ?? 0))))" (click)="replaceItem.emit(row.item)"> Replace</button>
+          *ngIf="row.canReplace" (click)="replaceItem.emit(row.item)"> Replace</button>
  
           </div>
         </td>
@@ -258,8 +257,10 @@ export class ItemTableComponent {
   }
 
   private computeViewModel() {
+    try { console.log('ItemTable.computeViewModel running, items ids:', (this._items||[]).map(i=>i.id)); } catch(e) {}
     const cats = this.categories ?? [];
     this.computedItems = (this._items || []).map(item => {
+      try { console.log('Item row', { id: item.id, checked: item.checked, status: item.status, usedToday: item.usedToday, controlQuantity: item.controlQuantity }); } catch(e) {}
       const expired = this.isExpired(item.expiryDate);
       const statusLabel = this.getStatusLabel(item);
       const statusColor = this.getStatusColor(statusLabel);
@@ -271,7 +272,18 @@ export class ItemTableComponent {
         return (d instanceof Date) ? (d.getDate().toString().padStart(2,'0') + '/' + (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getFullYear()) : String(d);
       })();
       const categoryIcon = this.getCategoryIcon(item.category ?? item.categoryName ?? '');
-      return { item, expired, statusLabel, statusColor, checkboxStyle, expiredCount, expiryDisplay, categoryIcon };
+      // Determine whether Replace action should be shown. Base rules mirror previous template logic,
+      // but if item has per-variant entries only show Replace when at least one variant still needs replacement.
+      const baseReplace = (expired || ['expired','insufficient', 'depleted'].includes(item.status)) && (!(item.replacementDate) || ((item.controlQuantity ?? 0) > 1 && ((item.replacedCount ?? 0) < (item.controlQuantity ?? 0))));
+      const hasVariants = Array.isArray(item.items) && item.items.length || Array.isArray(item.variants) && item.variants.length || Array.isArray(item.syringes) && item.syringes.length;
+      let variantNeedsReplacement = false;
+      if (hasVariants) {
+        const candidates = Array.isArray(item.items) && item.items.length ? item.items : (Array.isArray(item.variants) && item.variants.length ? item.variants : (Array.isArray(item.syringes) && item.syringes.length ? item.syringes : []));
+        variantNeedsReplacement = candidates.some((v: any) => !!v.needsReplacement && !v.isReplacement && !v.checked);
+      }
+      const canReplace = baseReplace && (!hasVariants || variantNeedsReplacement);
+
+      return { item, expired, statusLabel, statusColor, checkboxStyle, expiredCount, expiryDisplay, categoryIcon, canReplace };
     });
   }
 

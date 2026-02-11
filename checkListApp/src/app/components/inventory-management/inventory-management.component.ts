@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
@@ -131,7 +131,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
         
         <mat-card style="background:var(--color-surface); box-shadow:0 8px 30px rgba(2,6,23,0.04);">
           <mat-card-header style="background:var(--bg-info);">
-            <mat-card-title>Item List</mat-card-title>
+            <mat-card-title style="font-size:2rem; font-weight:700;">Check List</mat-card-title>
             <mat-card-subtitle style="margin-left:8px; color:#374151; font-size:0.9rem;">Total: {{filteredInventory().length}} • Shown: {{dateFilteredItems().length}}</mat-card-subtitle>
           </mat-card-header>
 
@@ -159,6 +159,13 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
       background-color: transparent !important;
       color: inherit !important;
     }
+    /* Card header title sizing consistent with project */
+    mat-card-header mat-card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1.1;
+    }
   `]
 })
 export class InventoryManagementComponent implements OnInit, OnDestroy {
@@ -174,7 +181,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   loading = signal<boolean>(false);
   apiError = signal<string | null>(null);
   showingCached = signal<boolean>(false);
-  constructor(private api: SignatureApiService, private inventoryApi: InventoryApiService, private dialog: MatDialog, private dailyService: DailyChecklistService) {}
+  constructor(private api: SignatureApiService, private inventoryApi: InventoryApiService, private dialog: MatDialog, private dailyService: DailyChecklistService, private cdr: ChangeDetectorRef) {}
 
   // today's date for display
   today: Date = new Date();
@@ -208,6 +215,21 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   // Use `any[]` here so the runtime objects can match the JSON shape
   // without requiring changes to the `Item` model file.
   inventory = signal<any[]>([]);
+
+  // Per-item operation queues to serialize async merges and avoid race conditions
+  private itemQueues: Map<any, Promise<any>> = new Map();
+
+  private enqueueItemOp(id: any, op: () => Promise<any> | any) {
+    const prev = this.itemQueues.get(id) ?? Promise.resolve();
+    const next = prev.then(() => Promise.resolve().then(() => op())).catch((e) => { console.error('[item-queue] op error', e); }).finally(() => {
+      // remove queue entry if this chain is the last one
+      try {
+        if (this.itemQueues.get(id) === next) this.itemQueues.delete(id);
+      } catch (e) {}
+    });
+    this.itemQueues.set(id, next);
+    return next;
+  }
 
   ngOnInit(): void {
     this.loadInventory();
@@ -326,7 +348,11 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
                 }
                 return String(d);
               });
-              return { ...v, expiryDates: dates, expiryDate: dates[0] ?? null };
+              // Ensure variants inherit meaningful display fields when absent
+              const variantName = v.itemName ?? v.name ?? it.itemName ?? it.name ?? null;
+              const variantCategory = v.category ?? it.category ?? cat?.category ?? cat?.categoryName ?? it.categoryName ?? it.group ?? it.type ?? null;
+              const variantDescription = v.description ?? v.size ?? v.unit ?? it.description ?? null;
+              return { ...v, expiryDates: dates, expiryDate: dates[0] ?? null, name: variantName, category: variantCategory, description: variantDescription };
             });
           }
           let rawStatus = it.status ?? '';
@@ -462,7 +488,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   
 
   // Open details dialog for a specific item
- public handleCheckboxClick(item: any) {
+  handleCheckboxClick(item: any) {
     // prevent toggling if item is expired and awaiting replacement
     if (this.isExpired(item.expiryDate)) return;
 
@@ -483,137 +509,177 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           instances,
           isMultipleRequired: true,
           onReplaceImmediate: (index: number, newInst: any) => {
-            // Apply a replacement immediately to inventory for visual update
-                const now = this.formatDate(new Date()) ?? new Date().toISOString();
-            this.inventory.update(items => items.map(i => {
-              if (i.id !== item.id) return i;
-              const required = i.controlQuantity ?? 0;
-              let origItems = Array.isArray((i as any).items) ? (i as any).items : (Array.isArray((i as any).variants) ? (i as any).variants : undefined);
-              if (Array.isArray(origItems) && origItems.length) {
-                const inst = instances[index];
-                const idx = inst?._itemIndex ?? inst?._variantIndex ?? index;
-                const newItems = origItems.map((v: any) => ({ ...v }));
-                if (newInst?.expiryDate) {
-                  newItems[idx] = { ...(newItems[idx] || {}), expiryDate: newInst.expiryDate, replacementDate: now, isReplacement: true };
+            // enqueue per-item replacement so it doesn't race with other ops
+            this.enqueueItemOp(item.id, () => {
+              // Apply a replacement immediately to inventory for visual update
+              const now = this.formatDate(new Date()) ?? new Date().toISOString();
+              this.inventory.update(items => items.map(i => {
+                if (i.id !== item.id) return i;
+                const required = i.controlQuantity ?? 0;
+                let origItems = Array.isArray((i as any).items) ? (i as any).items : (Array.isArray((i as any).variants) ? (i as any).variants : undefined);
+                if (Array.isArray(origItems) && origItems.length) {
+                  const inst = instances[index];
+                  const idx = inst?._itemIndex ?? inst?._variantIndex ?? index;
+                  const newItems = origItems.map((v: any) => ({ ...v }));
+                  if (newInst?.expiryDate) {
+                    newItems[idx] = { ...(newItems[idx] || {}), expiryDate: newInst.expiryDate, replacementDate: now, isReplacement: true };
+                  }
+                  const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
+                  const primary = allDates.length ? allDates.sort()[0] : (newItems[0]?.expiryDate ?? i.expiryDate);
+                  // compute replacedCount from explicit `isReplacement` flags on instances
+                  const totalInstances = Math.max(origItems.length, i.controlQuantity || 0, 1);
+                  const actualReplacedCount = newItems.filter((v: any) => !!v.isReplacement).length;
+                  const allReplaced = actualReplacedCount >= totalInstances;
+                  // compute available count from merged items so the table updates as each instance is replaced
+                  const availableNow = newItems.reduce((cnt: number, v: any) => {
+                    if (v.available === false) return cnt;
+                    const d = v.expiryDate ?? (Array.isArray(v.expiryDates) ? v.expiryDates[0] : null);
+                    if (d && this.isExpired(d)) return cnt;
+                    return cnt + 1;
+                  }, 0);
+                  // Increment usedToday by one for this immediate per-instance replacement, capped to availableNow
+                  const prevUsedInst = i.usedToday ?? 0;
+                  const instIncrement = 1;
+                  const newUsedInst = Math.min(prevUsedInst + instIncrement, availableNow);
+                  return { ...i, items: newItems, expiryDate: primary, replacementDate: allReplaced ? now : i.replacementDate, replacedCount: actualReplacedCount, checked: false, checkedDate: null, usedToday: newUsedInst };
+                } else {
+                  // fallback: update top-level expiryDate
+                  // fallback: update top-level expiryDate and mark as one replacement; set usedToday conservatively
+                  return { ...i, expiryDate: newInst?.expiryDate ?? i.expiryDate, replacementDate: now, replacedCount: 1, checked: false, checkedDate: null, usedToday: (required ?? 0) > 0 ? (required ?? 0) : null, status: (required > 0 ? 'satisfactory' : 'depleted') };
                 }
-                const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
-                const primary = allDates.length ? allDates.sort()[0] : (newItems[0]?.expiryDate ?? i.expiryDate);
-                // compute replacedCount from explicit `isReplacement` flags on instances
-                const totalInstances = Math.max(origItems.length, i.controlQuantity || 0, 1);
-                const actualReplacedCount = newItems.filter((v: any) => !!v.isReplacement).length;
-                const allReplaced = actualReplacedCount >= totalInstances;
-                return { ...i, items: newItems, expiryDate: primary, replacementDate: allReplaced ? now : i.replacementDate, replacedCount: actualReplacedCount, checked: false, checkedDate: null, usedToday: null };
-              } else {
-                // fallback: update top-level expiryDate
-                return { ...i, expiryDate: newInst?.expiryDate ?? i.expiryDate, replacementDate: now, replacedCount: 1, checked: false, checkedDate: null, usedToday: null, status: (required > 0 ? 'satisfactory' : 'depleted') };
-              }
-            }));
-            this.saveTodaySnapshot();
+              }));
+              // Force immediate UI refresh so ItemTable recomputes
+              try { this.inventory.set(this.inventory().slice()); } catch (e) {}
+              try { this.cdr.detectChanges(); } catch (e) {}
+              this.saveTodaySnapshot();
+            });
           }
         }
       });
 
       ref.afterClosed().subscribe((res: any) => {
         if (!res || typeof res.used !== 'number') return; // user cancelled or no value
-        const availableCount = res.availableCount || 0;
-        const notAvailableCount = res.notAvailableCount || 0;
+        // Normalize availableCount and indices: ensure we never mark more instances available
+        const rawAvailable = (res.availableCount == null) ? null : Number(res.availableCount);
+        const availableCount = Number.isFinite(rawAvailable) ? Math.max(0, Math.floor(rawAvailable as number)) : null;
         const updatedDates = res.updatedDates || {};
-        const availableIndices: number[] = Array.isArray(res.availableIndices) ? res.availableIndices : [];
-        const depletedIndices: number[] = Array.isArray(res.depletedIndices) ? res.depletedIndices : [];
+        // Defensive copy of indices returned by dialog
+        let availableIndices: number[] = Array.isArray(res.availableIndices) ? res.availableIndices.slice() : [];
+        let depletedIndices: number[] = Array.isArray(res.depletedIndices) ? res.depletedIndices.slice() : [];
 
-        this.inventory.update(items => items.map(i => {
-          if (i.id !== item.id) return i;
-          const required = i.controlQuantity ?? 0;
-          const nowIso = new Date().toISOString();
-          const history = (i.usageHistory ?? []).concat([{ date: nowIso, used: availableCount }]);
-          const now = nowIso;
+        // If dialog returned more available indices than allowed, trim to allowed and mark the rest as depleted
+        if (typeof availableCount === 'number' && availableIndices.length > availableCount) {
+          const kept = availableIndices.slice(0, availableCount);
+          const overflow = availableIndices.slice(availableCount);
+          availableIndices = kept;
+          // add overflowed indices to depleted list to ensure they are not marked available
+          for (const idx of overflow) if (depletedIndices.indexOf(idx) === -1) depletedIndices.push(idx);
+        }
 
-          // Determine if any per-item expiry was updated
-          let hasReplacedDate = false;
-          const origItems = Array.isArray((i as any).items) ? (i as any).items : (Array.isArray((i as any).variants) ? (i as any).variants : undefined);
+        // enqueue the merge so it doesn't race with other per-item ops
+        this.enqueueItemOp(item.id, () => {
+          this.inventory.update(items => items.map(i => {
+            if (i.id !== item.id) return i;
+            const required = i.controlQuantity ?? 0;
+            const nowIso = new Date().toISOString();
+            const history = (i.usageHistory ?? []).concat([{ date: nowIso, used: (availableCount ?? 0) }]);
+            const now = nowIso;
 
-          // If the dialog returned per-instance indices, update per-instance availability flags so
-          // the main UI and the Replace dialog can show which instances are depleted and which are present.
-          if (Array.isArray(origItems) && origItems.length) {
-            for (let idx = 0; idx < origItems.length; idx++) {
-              const v = origItems[idx] as any;
-              // mark available / not available based on indices from the dialog
-              if (availableIndices.indexOf(idx) >= 0) {
-                v.available = true;
-                v.needsReplacement = false;
-              } else if (depletedIndices.indexOf(idx) >= 0) {
-                v.available = false;
-                // flag 'needsReplacement' so ReplaceDialog renders it visually as needing attention
-                v.needsReplacement = true;
+            // Determine if any per-item expiry was updated
+            let hasReplacedDate = false;
+            const origItems = Array.isArray((i as any).items) ? (i as any).items : (Array.isArray((i as any).variants) ? (i as any).variants : undefined);
+
+            // If the dialog returned per-instance indices, update per-instance availability flags so
+            // the main UI and the Replace dialog can show which instances are depleted and which are present.
+            if (Array.isArray(origItems) && origItems.length) {
+              for (let idx = 0; idx < origItems.length; idx++) {
+                const v = origItems[idx] as any;
+                // mark available / not available based on indices from the dialog
+                if (availableIndices.indexOf(idx) >= 0) {
+                  v.available = true;
+                  v.needsReplacement = false;
+                  // mark that this variant was checked/present during the usage step
+                  v.checked = true;
+                } else if (depletedIndices.indexOf(idx) >= 0) {
+                  v.available = false;
+                  // flag 'needsReplacement' so ReplaceDialog renders it visually as needing attention
+                  v.needsReplacement = true;
+                }
               }
             }
-          }
 
-          if (Array.isArray(origItems) && origItems.length) {
-            for (let k = 0; k < instances.length; k++) {
-              const inst = instances[k];
-              const idx = inst?._itemIndex ?? inst?._variantIndex ?? k;
-              if (updatedDates[k] && updatedDates[k] !== (origItems[idx]?.expiryDate ?? (origItems[idx]?.expiryDates ? origItems[idx].expiryDates[0] : null))) {
-                hasReplacedDate = true;
-                break;
+            if (Array.isArray(origItems) && origItems.length) {
+              for (let k = 0; k < instances.length; k++) {
+                const inst = instances[k];
+                const idx = inst?._itemIndex ?? inst?._variantIndex ?? k;
+                if (updatedDates[k] && updatedDates[k] !== (origItems[idx]?.expiryDate ?? (origItems[idx]?.expiryDates ? origItems[idx].expiryDates[0] : null))) {
+                  hasReplacedDate = true;
+                  break;
+                }
               }
             }
-          }
 
-          // Compute status based strictly on controlQuantity (required) and availableCount
-          let status: string;
-          if (this.isExpired(i.expiryDate)) {
-            status = 'expired';
-          } else {
-            if (availableCount === 0) status = 'depleted';
-            else if (availableCount < required) status = 'insufficient';
-            else if (availableCount === required) status = 'satisfactory';
-            else if (availableCount > required && availableCount <= required + 5) status = 'excessive';
-            else status = 'satisfactory';
-          }
+            // Compute status based strictly on controlQuantity (required) and availableCount
+            let status: string;
+            if (this.isExpired(i.expiryDate)) {
+              status = 'expired';
+            } else if (availableCount === 0) {
+              status = 'depleted';
+            } else if (availableCount !== null) {
+              if (availableCount < required) status = 'insufficient';
+              else if (availableCount === required) status = 'satisfactory';
+              else if (availableCount > required && availableCount <= required + 5) status = 'excessive';
+              else status = 'satisfactory';
+            } else {
+              status = 'satisfactory';
+            }
 
-          const newChecked = true;
-          const newItem: any = { ...i, checked: newChecked, status, checkedDate: now, usageHistory: history, usedToday: availableCount };
+            const newChecked = true;
+            const newItem: any = { ...i, checked: newChecked, status, checkedDate: now, usageHistory: history, usedToday: availableCount };
 
-          if (hasReplacedDate && Array.isArray(origItems) && origItems.length) {
-            const newItems = origItems.map((v: any) => ({ ...v }));
-            for (let k = 0; k < instances.length; k++) {
-              const inst = instances[k];
-              const idx = inst?._itemIndex ?? inst?._variantIndex ?? k;
-              const newDate = updatedDates[k];
-              if (newDate && newItems[idx]) {
-                // write back to per-size expiryDate and mark as replacement
-                newItems[idx].expiryDate = newDate;
-                newItems[idx].replacementDate = now;
-                newItems[idx].isReplacement = true;
-                // once replaced, clear needsReplacement flag
-                newItems[idx].needsReplacement = false;
-                newItems[idx].available = true;
+            if (hasReplacedDate && Array.isArray(origItems) && origItems.length) {
+              const newItems = origItems.map((v: any) => ({ ...v }));
+              for (let k = 0; k < instances.length; k++) {
+                const inst = instances[k];
+                const idx = inst?._itemIndex ?? inst?._variantIndex ?? k;
+                const newDate = updatedDates[k];
+                if (newDate && newItems[idx]) {
+                  // write back to per-size expiryDate and mark as replacement
+                  newItems[idx].expiryDate = newDate;
+                  newItems[idx].replacementDate = now;
+                  newItems[idx].isReplacement = true;
+                  // once replaced, clear needsReplacement flag
+                  newItems[idx].needsReplacement = false;
+                  newItems[idx].available = true;
+                }
+              }
+              newItem.items = newItems;
+              // set primary expiryDate to earliest known (fallback to first)
+              const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
+              newItem.expiryDate = allDates.length ? allDates[0] : newItem.expiryDate;
+              // compute replacedCount from explicit flags (do not accumulate)
+              const totalInstances = Math.max(i.controlQuantity || 0, origItems.length, 1);
+              const actualReplaced = newItems.filter((v: any) => !!v.isReplacement).length;
+              if (actualReplaced) {
+                newItem.replacedCount = actualReplaced;
+                if ((newItem.replacedCount || 0) >= totalInstances) newItem.replacementDate = now;
               }
             }
-            newItem.items = newItems;
-            // set primary expiryDate to earliest known (fallback to first)
-            const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
-            newItem.expiryDate = allDates.length ? allDates[0] : newItem.expiryDate;
-            // compute replacedCount from explicit flags (do not accumulate)
-            const totalInstances = Math.max(i.controlQuantity || 0, origItems.length, 1);
-            const actualReplaced = newItems.filter((v: any) => !!v.isReplacement).length;
-            if (actualReplaced) {
-              newItem.replacedCount = actualReplaced;
-              if ((newItem.replacedCount || 0) >= totalInstances) newItem.replacementDate = now;
-            }
-          }
 
-          return newItem;
-        }));
-        this.saveTodaySnapshot();
+            return newItem;
+          }));
+            // Force immediate UI refresh so ItemTable recomputes
+            try { this.inventory.set(this.inventory().slice()); } catch (e) {}
+            try { this.cdr.detectChanges(); } catch (e) {}
+            this.saveTodaySnapshot();
+        });
       });
       return;
     }
-    
+
     // We'll handle the "checking" action specially so we can collect used quantity when present.
     // If item is currently unchecked and has a numeric quantity, open a dialog to record usage.
-    if (!item.checked && (typeof item.controlQuantity === 'number')) {
+    if (!item.checked && typeof item.controlQuantity === 'number') {
       const ref = this.dialog.open(UsageDialogComponent, { width: '700px', data: { item } });
       ref.afterClosed().subscribe((res: any) => {
         if (!res || typeof res.used !== 'number') return; // user cancelled or no value
@@ -650,12 +716,28 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     // Otherwise fallback to previous toggle behavior (no quantity prompt)
     this.inventory.update(items => items.map(i => {
       if (i.id !== item.id) return i;
-      if (!i.checked) {
+        if (!i.checked) {
         // mark checked and record timestamp (history)
-        // if item has subitems, mark them checked too
+        // if item has subitems, mark them checked too, but enforce `usedToday` (availableCount) if set
         if ((i as any).syringes && Array.isArray((i as any).syringes)) {
-          const syr = (i as any).syringes.map((s: any) => ({ ...s, checked: true }));
-          return { ...i, checked: true, status: 'satisfactory', checkedDate: new Date().toISOString(), syringes: syr };
+          const syrArr = (i as any).syringes as any[];
+          const allowed = typeof i.usedToday === 'number' ? Number(i.usedToday) : null;
+          if (allowed !== null && allowed >= 0) {
+            let marked = 0;
+            const syr = syrArr.map((s: any) => {
+              if (marked < allowed) {
+                marked++;
+                return { ...s, checked: true, available: true };
+              }
+              return { ...s, checked: false, available: false };
+            });
+            const anyNotAvailable = syr.some((s: any) => s.available === false);
+            const status = anyNotAvailable ? 'depleted' : 'satisfactory';
+            return { ...i, checked: true, status, checkedDate: new Date().toISOString(), syringes: syr };
+          } else {
+            const syr = syrArr.map((s: any) => ({ ...s, checked: true }));
+            return { ...i, checked: true, status: 'satisfactory', checkedDate: new Date().toISOString(), syringes: syr };
+          }
         }
         return { ...i, checked: true, status: 'satisfactory', checkedDate: new Date().toISOString() };
       } else {
@@ -672,7 +754,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     this.saveTodaySnapshot();
   }
 
-  handleSubitemToggle(event: { itemId: number; index: number }) {
+  public handleSubitemToggle(event: { itemId: number; index: number }) {
     this.inventory.update(items => items.map(i => {
       if (i.id !== event.itemId) return i;
       // prevent toggling subitems if the parent item is expired
@@ -680,9 +762,19 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
       const copy: any = { ...i };
       if (!copy.syringes || !Array.isArray(copy.syringes)) return i;
 
-      // Toggle availability for the specific subitem; mark it as checked
+      // Enforce available-count limit (if set via `usedToday`)
+      const allowed = typeof copy.usedToday === 'number' ? Number(copy.usedToday) : null;
       const syr = copy.syringes.map((s: any, idx: number) => {
         if (idx !== event.index) return s;
+        const currentlyAvailableCount = copy.syringes.reduce((cnt: number, v: any) => {
+          if (v.available === false) return cnt;
+          return cnt + 1;
+        }, 0);
+        const willBeAvailable = !s.available;
+        if (allowed !== null && willBeAvailable && currentlyAvailableCount >= allowed) {
+          try { window.alert(`Only ${allowed} item(s) available — cannot mark more.`); } catch (e) {}
+          return s;
+        }
         return { ...s, available: !s.available, checked: true };
       });
       copy.syringes = syr;
@@ -716,25 +808,30 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     ref.afterClosed().subscribe((result: any) => {
       if (result && result.expiryDate && result.replacementDate) {
         const ctrlQty = typeof result.controlQuantity === 'number' ? result.controlQuantity : (item.controlQuantity ?? 0);
-        this.inventory.update(items => items.map(i => i.id === item.id ? {
-          ...i,
-          expiryDate: result.expiryDate,
-          replacementDate: result.replacementDate,
-          status: ctrlQty > 0 ? 'satisfactory' : 'depleted',
-          checked: false,
-          checkedDate: null,
-          controlQuantity: ctrlQty,
-          usedToday: null
-        } : i));
-        // persist after replacement
-        this.saveTodaySnapshot();
+        // serialize per-item merge
+        this.enqueueItemOp(item.id, () => {
+          this.inventory.update(items => items.map(i => i.id === item.id ? {
+            ...i,
+            expiryDate: result.expiryDate,
+            replacementDate: result.replacementDate,
+            status: ctrlQty > 0 ? 'satisfactory' : 'depleted',
+            checked: false,
+            checkedDate: null,
+            controlQuantity: ctrlQty,
+            usedToday: null
+          } : i));
+          // persist after replacement
+          this.saveTodaySnapshot();
+        });
         return;
       }
 
       // Support replacing per-item entries (formerly 'variants') returned as `items`
       if (result && Array.isArray(result.items)) {
         const now = this.formatDate(new Date()) ?? new Date().toISOString();
-        this.inventory.update(items => items.map(i => {
+        // Serialize per-item merge so concurrent dialogs/operations don't race
+        this.enqueueItemOp(item.id, () => {
+          this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
           const origItems = Array.isArray(i.items) ? i.items : (Array.isArray(i.variants) ? i.variants : []);
           const returned = result.items;
@@ -744,30 +841,117 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
             if (merged[k]) {
               const returnedExpiry = returned[k]?.expiryDate ?? null;
               const origExpiry = merged[k]?.expiryDate ?? (Array.isArray(merged[k]?.expiryDates) ? merged[k].expiryDates[0] : null);
-              if (returnedExpiry && returnedExpiry !== origExpiry) {
-                merged[k].expiryDate = returnedExpiry;
-                merged[k].replacementDate = now;
+              const returnedReplacementDate = returned[k]?.replacementDate ?? null;
+              const origReplacementDate = merged[k]?.replacementDate ?? null;
+              // Treat as a replacement when expiry changed OR a replacement date was provided/changed
+              if ((returnedExpiry && returnedExpiry !== origExpiry) || (returnedReplacementDate && returnedReplacementDate !== origReplacementDate)) {
+                merged[k].expiryDate = returnedExpiry ?? merged[k].expiryDate;
+                // prefer explicit returned replacementDate, otherwise use now
+                merged[k].replacementDate = returnedReplacementDate ?? now;
                 merged[k].isReplacement = true;
+                // once replaced, clear needsReplacement and mark available
+                merged[k].needsReplacement = false;
+                merged[k].available = true;
               }
             } else {
               // append any extra returned items
-              merged.push({ ...returned[k], replacementDate: returned[k]?.replacementDate ?? now, isReplacement: true });
+              const appended = { ...returned[k], replacementDate: returned[k]?.replacementDate ?? now };
+              // if the returned item carries a replacementDate, treat it as a replacement and mark available
+              if (returned[k]?.replacementDate) {
+                appended.isReplacement = true;
+                appended.available = true;
+              }
+              merged.push(appended);
             }
           }
 
-          // determine primary expiry and replacedCount from flags
+          // determine primary expiry
           const allDates = merged.map((v: any) => v.expiryDate).filter(Boolean);
           const primary = allDates.length ? allDates.sort()[0] : i.expiryDate;
-          const totalInstances = Math.max(i.controlQuantity || 0, merged.length, 1);
-          const actualReplaced = merged.filter((v: any) => !!v.isReplacement).length;
-          const newItem: any = { ...i, items: merged, expiryDate: primary, checked: false, checkedDate: null, usedToday: null };
-          if (actualReplaced) {
-            newItem.replacedCount = actualReplaced;
-            if (actualReplaced >= totalInstances) newItem.replacementDate = now;
+
+          // Count how many variants originally needed replacement (so we only consider those)
+          const originallyNeeded = (Array.isArray(origItems) && origItems.length) ? origItems.filter((v: any) => !!v.needsReplacement).length : 0;
+
+          // Count how many of those originally-needed variants were actually replaced in this update
+          let actuallyReplacedNeeded = 0;
+          if (Array.isArray(origItems) && origItems.length) {
+            for (let idx = 0; idx < origItems.length; idx++) {
+              const orig = origItems[idx] as any;
+              const changed = merged[idx] && !!merged[idx].isReplacement;
+              if (orig && orig.needsReplacement && changed) actuallyReplacedNeeded++;
+            }
           }
+
+          const newItem: any = { ...i, items: merged, expiryDate: primary };
+
+          // Update replacedCount to reflect how many variants are marked replaced (do not treat this as a full replacement)
+          const replacedFlags = merged.filter((v: any) => !!v.isReplacement).length;
+          if (replacedFlags) newItem.replacedCount = replacedFlags;
+
+          // Compute current available count from merged variants so the UI's "Available" column updates
+          const availableCount = Array.isArray(merged) ? merged.reduce((count: number, v: any) => {
+            if (v.available === false) return count;
+            const d = v.expiryDate ?? (Array.isArray(v.expiryDates) ? v.expiryDates[0] : null);
+            if (d && this.isExpired(d)) return count;
+            return count + 1;
+          }, 0) : 0;
+          // Increment usedToday by the number of variants replaced in this operation, but never exceed availableCount
+          const prevUsed = i.usedToday ?? 0;
+          const increment = replacedFlags || 0;
+          newItem.usedToday = Math.min(prevUsed + increment, availableCount);
+
+          // Assign an appropriate checked/status state after replacement so the UI reflects current availability
+          try {
+            const required = i.controlQuantity ?? 0;
+            let status: string;
+            if (this.isExpired(i.expiryDate)) {
+              status = 'expired';
+            } else if (availableCount === 0) {
+              status = 'depleted';
+            } else if (availableCount !== null) {
+              if (availableCount < required) status = 'insufficient';
+              else if (availableCount === required) status = 'satisfactory';
+              else if (availableCount > required && availableCount <= required + 5) status = 'excessive';
+              else status = 'satisfactory';
+            } else {
+              status = 'satisfactory';
+            }
+            newItem.status = status;
+            // After replacement, keep the checked flag according to available vs required
+            // If availableCount >= required, mark checked and set checkedDate; otherwise leave unchecked
+            try {
+              const isCheckedNow = (availableCount >= required);
+              newItem.checked = !!isCheckedNow;
+              newItem.checkedDate = isCheckedNow ? now : null;
+            } catch (e) {}
+          } catch (e) {
+            // ignore
+          }
+          // Diagnostic log to help trace replacement updates
+          try {
+            const newUsed = newItem.usedToday;
+            console.log('replace result', result, replacedFlags, availableCount, prevUsed, newUsed);
+          } catch (e) {
+            // ignore logging errors
+          }
+
+          // Only mark the whole item as 'replaced' when all originally-needed variants were replaced
+          // Do not forcibly clear `checked` — instead set it based on available vs required so the checkbox reflects availability
+          if (originallyNeeded > 0 && actuallyReplacedNeeded >= originallyNeeded) {
+            newItem.replacementDate = now;
+            try {
+              const required = i.controlQuantity ?? 0;
+              const isCheckedNow = (availableCount >= required);
+              newItem.checked = !!isCheckedNow;
+              newItem.checkedDate = isCheckedNow ? now : null;
+            } catch (e) {}
+            // keep usedToday in sync with merged variants (already computed)
+          }
+
           return newItem;
-        }));
-        this.saveTodaySnapshot();
+          }));
+          this.saveTodaySnapshot();
+        });
         return;
       }
     });
@@ -777,6 +961,13 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     // snapshot only essential fields to keep storage small
     const snapshot = this.inventory().map(i => ({ id: i.id, name: i.name, category: i.category ?? null, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null }));
     this.dailyService.saveSnapshot(new Date(), snapshot);
+    // Ensure any in-place mutations are surfaced to consumers by creating a new array reference
+    try {
+      this.inventory.set(this.inventory().slice());
+      try { this.cdr.detectChanges(); } catch (e) { /* ignore */ }
+    } catch (e) {
+      // ignore
+    }
   }
 
   startSession() {

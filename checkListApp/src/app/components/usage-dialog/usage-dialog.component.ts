@@ -12,7 +12,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { FormsModule } from '@angular/forms';
-import { Item, Variant } from '../../models/item';
+// Runtime dialog data shape varies (item may be a DisplayItem or runtime shape).
+// Use `any` for injected data to avoid coupling to the `Item` model here.
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
 import { generateInstances } from '../../utils/instance-utils';
 import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instance-detail-dialog.component';
@@ -73,14 +74,13 @@ import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-ut
                   <th class="ud-th">Item</th>
                   <th class="ud-th">Description</th>
                   <th class="ud-th">Expiry Date</th>
-                  <th class="ud-th center">Present</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let instance of data.instances; let i = index" [class.ud-row-selected]="selectedIndices.has(i)" [class.ud-row-depleted]="instanceDisabled.has(i)">
+                <tr *ngFor="let instance of data.instances; let i = index" [class.ud-row-selected]="selectedIndices.has(i)" [class.ud-row-depleted]="isInstanceDisabled(i)">
                   <td class="ud-td center" (click)="toggleItemSelection(i)">
-                    <label class="ud-checkbox-wrap" [class.ud-checkbox-disabled]="instanceDisabled.has(i)">
-                      <input type="checkbox" [checked]="selectedIndices.has(i)" (click)="$event.stopPropagation(); toggleItemSelection(i)" [disabled]="instanceDisabled.has(i)" />
+                    <label class="ud-checkbox-wrap" [class.ud-checkbox-disabled]="isInstanceDisabled(i)">
+                      <input type="checkbox" [checked]="selectedIndices.has(i)" (click)="$event.stopPropagation(); toggleItemSelection(i)" [disabled]="isInstanceDisabled(i)" />
                     </label>
                   </td>
                   <td class="ud-td" (click)="$event.stopPropagation(); openInstanceDetail(i)">{{ instance.name }} </td>
@@ -91,15 +91,8 @@ import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-ut
                       <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
                       <mat-datepicker #picker></mat-datepicker>
                     </mat-form-field>
-                  </td>
-                  <td class="ud-td center">
-                    <input type="checkbox" 
-                           [checked]="itemAvailability.get(i) !== false" 
-                           (change)="toggleItemAvailability(i)"
-                           (click)="$event.stopPropagation()"
-                           [disabled]="instanceDisabled.has(i)" />
-                    <div *ngIf="instanceDisabled.has(i)" style="margin-top:6px;">
-                      <button mat-flat-button color="accent" class="ud-add-btn" matTooltip="Replace this instance" aria-label="Replace instance" (click)="$event.stopPropagation(); onAddInstance(i)">+</button>
+                    <div *ngIf="isInstanceDisabled(i)" style="margin-top:6px;">
+                      <button mat-flat-button color="accent" class="ud-add-btn" matTooltip="Replace this Item" aria-label="Replace instance" (click)="$event.stopPropagation(); onAddInstance(i)">+</button>
                     </div>
                   </td>
                 </tr>
@@ -108,6 +101,7 @@ import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-ut
 
             <div *ngIf="errorMultiple" class="ud-error-multiple">{{ errorMultiple }}</div>
             <div *ngIf="warningMultiple" class="ud-error-mismatch">{{ warningMultiple }}</div>
+            <div *ngIf="limitNotice" class="ud-error-mismatch">{{ limitNotice }}</div>
           </div>  
       </div>
     </mat-dialog-content>
@@ -208,8 +202,6 @@ export class UsageDialogComponent {
   warningMultiple: string | null = null;
   // Indices the user has 'Checked' (left column) in the review table
   selectedIndices: Set<number> = new Set();
-  // Map of instance index -> availability (true = present, false = not present)
-  itemAvailability: Map<number, boolean> = new Map();
   // Editable expiry dates keyed by instance index (store Date objects for datepicker)
   editableDates: Record<number, Date | null> = {};
   // Help panel toggle
@@ -220,6 +212,12 @@ export class UsageDialogComponent {
   countMismatch: { reason: 'low' | 'high'; message: string } | null = null;
   // indices that should be shown as depleted/disabled in review (grayed out)
   instanceDisabled: Set<number> = new Set();
+  // indices auto-disabled because the user reached the allowed selected+present limit
+  instanceAutoDisabled: Set<number> = new Set();
+  // maximum number of instances that may be selected+present in review (controlled by `used` when multiple-required)
+  maxSelectable: number = Infinity;
+  // notice shown when auto-disabling occurs
+  limitNotice: string | null = null;
   // depletion notice message shown inline in the dialog when required>count
   depletionNotice: string | null = null;
   // whether the dialog flow began with a counted-zero (depleted) state
@@ -229,11 +227,11 @@ export class UsageDialogComponent {
     private dialogRef: MatDialogRef<UsageDialogComponent>,
     private matDialog: MatDialog,
     private cdr: ChangeDetectorRef,
-    @Inject(MAT_DIALOG_DATA) public data: { item: Item; instances?: Variant[]; isMultipleRequired?: boolean; onReplaceImmediate?: Function }
+    @Inject(MAT_DIALOG_DATA) public data: any
   ) {
     this.used = 0;
     // Initialize all items as available by default and copy their expiry dates
-    if (this.data.instances) {
+    if (this.data?.instances) {
       this.initInstanceState(this.data.instances);
     }
   }
@@ -296,8 +294,18 @@ export class UsageDialogComponent {
     const q = this.data.item?.controlQuantity ?? 0;
     if (q >= 1 && this.used === 0) {
       // mark all instance rows as depleted
-      (this.data.instances || []).forEach((_, idx: number) => this.setInstancePresent(idx, false));
+      (this.data.instances || []).forEach((_: any, idx: number) => this.setInstancePresent(idx, false));
     }
+    // For multiple-required flows, determine the maximum selectable count from entered `used` (availableCount)
+    if (this.data.isMultipleRequired) {
+      const required = this.data.item?.controlQuantity ?? 0;
+      const effective = this.startedDepleted ? 0 : ((typeof this.used === 'number' && this.used >= 0) ? this.used : required);
+      this.maxSelectable = effective;
+    } else {
+      this.maxSelectable = Infinity;
+    }
+    // enforce limit immediately so UI reflects allowed selections
+    this.enforceMaxSelection();
     this.step = 'review';
   }
 
@@ -332,15 +340,23 @@ export class UsageDialogComponent {
     if (this.selectedIndices.has(index)) {
       this.selectedIndices.delete(index);
     } else {
+      // if adding this selection would exceed the allowed limit, ignore and enforce auto-disable
+      const instancesAll = Array.isArray(this.data.instances) ? this.data.instances : [];
+      const presentAndSelectedCount = instancesAll
+        .map((_: any, idx: number) => idx)
+        .filter((i: number) => !this.instanceDisabled.has(i) && this.selectedIndices.has(i)).length;
+      const willBe = presentAndSelectedCount + 1;
+      if (this.data.isMultipleRequired && typeof this.maxSelectable === 'number' && isFinite(this.maxSelectable) && willBe > this.maxSelectable) {
+        // reached limit: do not add, just enforce disabling for other rows and show notice
+        this.enforceMaxSelection();
+        return;
+      }
       this.selectedIndices.add(index);
     }
+    this.enforceMaxSelection();
   }
 
-  /** Toggle the 'present' state for an instance (true = present). */
-  toggleItemAvailability(index: number) {
-    const currentAvailability = this.itemAvailability.get(index) !== false;
-    this.setInstancePresent(index, !currentAvailability);
-  }
+  // (Removed separate 'present' toggle; checking is done via `selectedIndices`)
 
   // Ensure user has selected at least the required number of instances.
   private validateSelection(required: number): boolean {
@@ -361,10 +377,12 @@ export class UsageDialogComponent {
    */
   private initInstanceState(instances: any[]) {
     this.selectedIndices = new Set();
-    this.itemAvailability = new Map();
     this.editableDates = {};
+    this.instanceAutoDisabled.clear();
+    this.limitNotice = null;
     instances.forEach((inst: any, idx: number) => {
-      this.setInstancePresent(idx, true);
+      // default to unchecked/available
+      this.instanceDisabled.delete(idx);
       const parsed = this.parseDate(inst.expiryDate ?? null);
       this.editableDates[idx] = parsed; // keep Date|null for datepicker
     });
@@ -377,13 +395,41 @@ export class UsageDialogComponent {
    * @param select when true and present=true also add to `selectedIndices`
    */
   private setInstancePresent(index: number, present: boolean, select: boolean = false) {
-    this.itemAvailability.set(index, !!present);
     if (present) {
       this.instanceDisabled.delete(index);
       if (select) this.selectedIndices.add(index);
     } else {
       this.instanceDisabled.add(index);
       this.selectedIndices.delete(index);
+    }
+  }
+
+  /**
+   * Return whether an instance should be considered disabled in the UI.
+   */
+  isInstanceDisabled(index: number): boolean {
+    return this.instanceDisabled.has(index) || this.instanceAutoDisabled.has(index);
+  }
+
+  /**
+   * Enforce the configured `maxSelectable` limit by auto-disabling extra present-but-unselected rows.
+   */
+  private enforceMaxSelection() {
+    this.instanceAutoDisabled.clear();
+    this.limitNotice = null;
+    if (!this.data?.isMultipleRequired || !isFinite(this.maxSelectable)) return;
+    const instancesAll = Array.isArray(this.data.instances) ? this.data.instances : [];
+    const allIndices = instancesAll.map((_: any, idx: number) => idx);
+    const checkedCount = this.selectedIndices.size;
+    // Only auto-disable other available rows once the user has selected the allowed number
+    if (checkedCount >= this.maxSelectable) {
+      const toDisable = allIndices.filter((i: number) => !this.selectedIndices.has(i) && !this.instanceDisabled.has(i));
+      toDisable.forEach((idx: number) => this.instanceAutoDisabled.add(idx));
+      if (this.instanceAutoDisabled.size > 0) {
+        this.limitNotice = `Limit reached: only ${this.maxSelectable} item(s) may be checked.`;
+      }
+    } else {
+      this.instanceAutoDisabled.clear();
     }
   }
 
@@ -475,10 +521,9 @@ export class UsageDialogComponent {
       const required = this.data.item.controlQuantity ?? 0;
       if (Array.isArray(this.data.instances) && this.data.instances.length > 0) {
         const instances = this.data.instances;
-        const presentIndices = instances.map((_, idx) => idx).filter(i => this.itemAvailability.get(i) !== false);
-        // If nothing present (all depleted), accept used:0 and return
-        if (presentIndices.length === 0) {
-          // indicate there are no available items and all required are not available
+        const availableIndices = instances.map((_: any, idx: number) => idx).filter((i: number) => !this.instanceDisabled.has(i));
+        // If nothing available (all depleted), accept used:0 and return
+        if (availableIndices.length === 0) {
           const req = this.data.item?.controlQuantity ?? 0;
           this.closeResult({ used: 0, updatedDates: this.formatEditableDates(), availableCount: 0, notAvailableCount: req });
           return;
@@ -489,9 +534,9 @@ export class UsageDialogComponent {
 
       // Count how many instances are present (available) and how many are both present+checked
       const instancesAll = Array.isArray(this.data.instances) ? this.data.instances : [];
-      const presentIndicesAll = instancesAll.map((_, idx) => idx).filter(i => this.itemAvailability.get(i) !== false);
+      const presentIndicesAll = instancesAll.map((_: any, idx: number) => idx).filter((i: number) => !this.instanceDisabled.has(i));
       const presentCount = presentIndicesAll.length;
-      const selectedAndPresentCount = presentIndicesAll.filter(i => this.selectedIndices.has(i)).length;
+      const selectedAndPresentCount = presentIndicesAll.filter((i: number) => this.selectedIndices.has(i)).length;
 
       // Clear prior messages
       this.errorMultiple = null;
@@ -515,9 +560,9 @@ export class UsageDialogComponent {
       const notAvailableCount = Math.max(0, effectiveRequired - selectedAndPresentCount);
 
       // Provide explicit indices so callers can mark which per-instance entries were present
-      const presentAndCheckedIndices = presentIndicesAll.filter(i => this.selectedIndices.has(i));
-      const allIndices = instancesAll.map((_, idx) => idx);
-      const depletedIndices = allIndices.filter(i => presentAndCheckedIndices.indexOf(i) === -1);
+      const presentAndCheckedIndices = presentIndicesAll.filter((i: number) => this.selectedIndices.has(i));
+      const allIndices = instancesAll.map((_: any, idx: number) => idx);
+      const depletedIndices = allIndices.filter((i: number) => presentAndCheckedIndices.indexOf(i) === -1);
 
       // Return `used` as the effective available count and include index lists so callers
       // can update per-instance availability / replacement flags in the inventory model.
@@ -531,7 +576,7 @@ export class UsageDialogComponent {
     // If there are instance rows (review UI), apply the checked/present rules
     if (Array.isArray(this.data.instances) && this.data.instances.length > 0) {
       const instances = this.data.instances;
-      const presentIndices = instances.map((_, idx) => idx).filter(i => this.itemAvailability.get(i) !== false);
+      const presentIndices = instances.map((_: any, idx: number) => idx).filter((i: number) => !this.instanceDisabled.has(i));
       const presentCount = presentIndices.length;
 
       // If nothing marked present, allow confirm (used: 0)
@@ -541,7 +586,7 @@ export class UsageDialogComponent {
       }
 
       // If some are marked present, ensure at least one of those is Checked (left column)
-      const selectedPresentCount = presentIndices.filter(i => this.selectedIndices.has(i)).length;
+      const selectedPresentCount = presentIndices.filter((i: number) => this.selectedIndices.has(i)).length;
       if (selectedPresentCount === 0) {
         if (!this.startedDepleted && !this.validateSelection(q)) return;
       }

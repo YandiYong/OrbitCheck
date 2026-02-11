@@ -8,7 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
-import { Item } from '../../models/item';
+// Use runtime `any` for dialog data to avoid coupling to the static `Item` model
 
 @Component({
   selector: 'app-edit-item-dialog',
@@ -50,13 +50,13 @@ export class EditItemDialogComponent {
   expiryDateString: string | null;
   quantity: number | null;
 
-  constructor(private dialogRef: MatDialogRef<EditItemDialogComponent>, @Inject(MAT_DIALOG_DATA) public data: { item: Item }) 
-  {
-    this.name = data.item.name ?? '';
-    this.expiryDate = data.item.expiryDate ?? null;
+  constructor(private dialogRef: MatDialogRef<EditItemDialogComponent>, @Inject(MAT_DIALOG_DATA) public data: any) {
+    const item = (this.data && this.data.item) ? this.data.item : this.data;
+    this.name = item?.name ?? '';
+    this.expiryDate = item?.expiryDate ?? null;
     this.expiryDateObj = parseAnyDate(this.expiryDate);
     this.expiryDateString = this.expiryDateObj ? formatDDMMYYYY(this.expiryDateObj) : (typeof this.expiryDate === 'string' ? this.expiryDate : null);
-    this.quantity = data.item.controlQuantity ?? null;
+    this.quantity = item?.controlQuantity ?? null;
   }
 
   save() {
