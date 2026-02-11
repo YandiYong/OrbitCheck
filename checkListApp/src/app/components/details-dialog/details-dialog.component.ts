@@ -12,7 +12,7 @@ import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../.
   standalone: true,
   imports: [CommonModule, MatCardModule, MatDialogModule, MatDividerModule, MatIconModule],
   template: `
-    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; position:relative;">
       <h2 style="margin:0">
         <ng-container *ngIf="hasType(); else singleTitle">
           <ng-container [ngSwitch]="getType()">
@@ -24,6 +24,9 @@ import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../.
         </ng-container>
         <ng-template #singleTitle>Item Details</ng-template>
       </h2>
+      <button mat-icon-button mat-dialog-close aria-label="Close dialog" style="position:absolute; right:8px; top:8px; background:transparent; border:none; box-shadow:none;">
+        <mat-icon>close</mat-icon>
+      </button>
     </div>
 
     <mat-divider style="margin:12px 0"></mat-divider>
@@ -31,15 +34,32 @@ import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../.
     <div style="max-height:70vh; overflow:auto; padding:var(--space-sm); box-sizing:border-box;">
       <div *ngIf="getItems(); else singleView">
       <div style="display:flex; flex-direction:column; gap:10px;">
-          <mat-card *ngFor="let item of getItems()" style="padding:var(--space-md);">
-            <mat-card-title style="font-weight:700;">{{ (item.description && item.description !== '-' ? item.description : (item.name || ('Variant ' + (item.id ?? '')))) }}</mat-card-title>
+          <mat-card *ngFor="let item of getItems()" style="padding:var(--space-md); border-left:6px solid var(--color-primary-600); background:var(--color-surface); box-shadow:var(--card-shadow); border-radius:var(--radius-sm);">
+            <mat-card-title style="font-weight:800; font-size:1.18rem; color:var(--color-primary-600);">{{ (item.description && item.description !== '-' ? item.description : (item.name || ('Variant ' + (item.id ?? '')))) }}</mat-card-title>
             <mat-card-content style="margin-top:var(--space-sm); color:var(--color-subtle);">
-              <div style="display:flex; gap:12px; flex-wrap:wrap;">
-                <div><strong>Expiry:</strong> {{ formatDateString(item.expiryDate) || '-' }}</div>
-               
-              </div>
-              <div style="margin-top:6px;" *ngIf="item.replacementDate">Replaced: {{ formatDateString(item.replacementDate) }}</div>
-              <div style="margin-top:6px;">Status: <strong>{{ getDisplayStatus(item) }}</strong></div>
+              <ng-container *ngIf="isArray(item.items) && item.items.length; else topLevelInfo">
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <mat-card *ngFor="let v of item.items" style="padding:14px; border-left:6px solid var(--color-primary); background:var(--color-surface); border-radius:var(--radius-sm); box-shadow:var(--card-shadow);">
+                    <mat-card-title style="font-weight:900; font-size:1.36rem; color:var(--color-primary-600); letter-spacing:0.2px;">
+                      {{ (v.description && v.description !== '-') ? v.description : (v.name || ('Variant ' + (v.id ?? '')) ) }}
+                    </mat-card-title>
+                    <mat-card-content style="margin-top:10px; display:flex; gap:16px; align-items:center; font-size:1.04rem; color:var(--color-text);">
+                      <div style="font-weight:700; color:var(--color-muted); font-size:0.98rem;">Expiry:</div>
+                      <div style="font-weight:900; color:var(--color-warning); font-size:1.04rem;">{{ formatDateString(v.expiryDate) || '-' }}</div>
+                      <div *ngIf="v.replacementDate" style="font-weight:800; color:var(--color-success); background:var(--bg-success); padding:6px 10px; border-radius:8px;">Replaced: {{ formatDateString(v.replacementDate) }}</div>
+                      <div style="margin-left:auto; font-weight:900; padding:6px 10px; border-radius:8px;" [style.color]="getStatusColor(v)">{{ getDisplayStatus(v) }}</div>
+                    </mat-card-content>
+                  </mat-card>
+                </div>
+              </ng-container>
+              <ng-template #topLevelInfo>
+                <div style="display:flex; gap:12px; align-items:center; padding:6px 0;">
+                  <div style="font-weight:700; color:var(--color-muted);">Expiry:</div>
+                  <div style="font-weight:900; color:var(--color-warning);">{{ formatDateString(item.expiryDate) || '-' }}</div>
+                  <div *ngIf="item.replacementDate" style="margin-left:12px; font-weight:700; color:var(--color-success);">Replaced: {{ formatDateString(item.replacementDate) }}</div>
+                  <div style="margin-left:auto; font-weight:900;" [style.color]="getStatusColor(item)">{{ getDisplayStatus(item) }}</div>
+                </div>
+              </ng-template>
             </mat-card-content>
           </mat-card>
       </div>
@@ -48,27 +68,27 @@ import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../.
     <ng-template #singleView>
       <mat-card>
         
-        <mat-card-title style="padding:var(--space-md);">{{ (getItem()?.description && getItem()?.description !== '-' ? getItem()?.description : (getItem()?.name || '')) }}</mat-card-title>
+        <mat-card-title style="padding:var(--space-md); font-size:1.4rem; font-weight:900; color:var(--color-primary-600);">{{ (getItem()?.description && getItem()?.description !== '-' ? getItem()?.description : (getItem()?.name || '')) }}</mat-card-title>
         
         <mat-card-content style="margin-top:var(--space-sm);">
-          <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:8px;">
-          <div style="font-size:12px;color:var(--color-muted)">Status:</div>
-          <div [style.color]="getStatusColor(getItem())" style="font-weight: 700;">
+          <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; align-items:center;">
+          <div style="font-size:0.98rem;color:var(--color-muted); font-weight:700">Status:</div>
+          <div [style.color]="getStatusColor(getItem())" style="font-weight: 900; font-size:1.06rem;">
             {{ getDisplayStatus(getItem()) }}
           </div>
             <div>
-              <div style="font-size:12px;color:var(--color-muted)">Checked:</div>
-              <div style="font-weight:700; color:#6b21a8">{{ getItem()?.checked ? 'Yes' : 'No' }}</div>
+              <div style="font-size:0.98rem;color:var(--color-muted); font-weight:700">Checked:</div>
+              <div style="font-weight:800; color:#6b21a8; font-size:1.02rem">{{ getItem()?.checked ? 'Yes' : 'No' }}</div>
             </div>  
             <div>
-              <div style="font-size:12px;color:var(--color-muted)">Expiry Date:</div>
-              <div style="font-weight:700; color:var(--color-warning)">
-                  {{ formatDateString(getItem()?.expiryDate) }} <span *ngIf="isExpired(getItem()?.expiryDate ?? null)" style="color:var(--color-danger); font-weight:700">(EXPIRED)</span>
+              <div style="font-size:0.98rem;color:var(--color-muted); font-weight:700">Expiry Date:</div>
+              <div style="font-weight:900; color:var(--color-warning); font-size:1.02rem">
+                  {{ formatDateString(getItem()?.expiryDate) }} <span *ngIf="isExpired(getItem()?.expiryDate ?? null)" style="color:var(--color-danger); font-weight:900">(EXPIRED)</span>
                 </div>
             </div>
             <div>
-              <div style="font-size:12px;color:var(--color-muted)">Last Replacement:</div>
-              <div style="font-weight:700; color:var(--color-success)">{{ formatDateString(getItem()?.replacementDate) || 'Never' }}</div>
+              <div style="font-size:0.98rem;color:var(--color-muted); font-weight:700">Last Replacement:</div>
+              <div style="font-weight:800; color:var(--color-success); font-size:1.02rem">{{ formatDateString(getItem()?.replacementDate) || 'Never' }}</div>
             </div>
           </div>
         </mat-card-content>
@@ -102,6 +122,9 @@ export class DetailsDialogComponent {
     if (Array.isArray((this.data as any)?.items)) return null;
     return this.data as any;
   }
+
+  // Expose Array.isArray to the template to satisfy Angular's template type checking
+  isArray(v: any): boolean { return Array.isArray(v); }
 
   isExpired(date: string | Date | null | undefined): boolean {
     return isBeforeToday(date);

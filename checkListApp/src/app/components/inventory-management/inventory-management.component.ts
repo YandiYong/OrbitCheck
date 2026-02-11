@@ -512,7 +512,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
             // enqueue per-item replacement so it doesn't race with other ops
             this.enqueueItemOp(item.id, () => {
               // Apply a replacement immediately to inventory for visual update
-              const now = this.formatDate(new Date()) ?? new Date().toISOString();
+              const now = new Date().toISOString();
               this.inventory.update(items => items.map(i => {
                 if (i.id !== item.id) return i;
                 const required = i.controlQuantity ?? 0;
@@ -600,6 +600,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
                   v.needsReplacement = false;
                   // mark that this variant was checked/present during the usage step
                   v.checked = true;
+                  v.checkedDate = now;
                 } else if (depletedIndices.indexOf(idx) >= 0) {
                   v.available = false;
                   // flag 'needsReplacement' so ReplaceDialog renders it visually as needing attention
@@ -781,7 +782,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
       // Parent should be checked and have a checkedDate when subitem toggled
       copy.checked = true;
-      copy.checkedDate = this.formatDate(new Date()) ?? new Date().toISOString();
+      copy.checkedDate = new Date().toISOString();
 
       // If any subitem is not available, parent becomes 'depleted'
       const anyNotAvailable = syr.some((s: any) => s.available === false);
@@ -828,7 +829,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
       // Support replacing per-item entries (formerly 'variants') returned as `items`
       if (result && Array.isArray(result.items)) {
-        const now = this.formatDate(new Date()) ?? new Date().toISOString();
+        const now = new Date().toISOString();
         // Serialize per-item merge so concurrent dialogs/operations don't race
         this.enqueueItemOp(item.id, () => {
           this.inventory.update(items => items.map(i => {
@@ -904,7 +905,9 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           try {
             const required = i.controlQuantity ?? 0;
             let status: string;
-            if (this.isExpired(i.expiryDate)) {
+            // Use the merged primary expiry (newItem.expiryDate) so status reflects replacements
+            const expiryToCheck = newItem.expiryDate ?? i.expiryDate;
+            if (this.isExpired(expiryToCheck)) {
               status = 'expired';
             } else if (availableCount === 0) {
               status = 'depleted';
@@ -935,9 +938,12 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
             // ignore logging errors
           }
 
-          // Only mark the whole item as 'replaced' when all originally-needed variants were replaced
-          // Do not forcibly clear `checked` — instead set it based on available vs required so the checkbox reflects availability
-          if (originallyNeeded > 0 && actuallyReplacedNeeded >= originallyNeeded) {
+          // Mark item-level `replacementDate` when either:
+          //  - all originally-needed variants were replaced, OR
+          //  - at least one variant was replaced in this operation.
+          // This ensures the "Replacements" card and counts include items
+          // when any variant has been replaced.
+          if ((originallyNeeded > 0 && actuallyReplacedNeeded >= originallyNeeded) || (replacedFlags > 0)) {
             newItem.replacementDate = now;
             try {
               const required = i.controlQuantity ?? 0;

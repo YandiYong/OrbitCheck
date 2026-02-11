@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
 
 // Runtime dialog data shape varies; use `any` to avoid adding fields to the `Item` model
@@ -22,10 +23,16 @@ import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
     MatDatepickerModule,
     MatNativeDateModule,
     MatDialogModule,
-    FormsModule
+    FormsModule,
+    MatIconModule
   ],
   template: `
-    <h2 mat-dialog-title>Replace Item</h2>
+    <div style="position:relative;">
+      <h2 mat-dialog-title>Replace Item</h2>
+      <button mat-icon-button mat-dialog-close aria-label="Close dialog" style="position:absolute; right:8px; top:8px; background:transparent; border:none; box-shadow:none;">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
     <mat-dialog-content style="max-height:60vh; overflow:auto; padding:8px; box-sizing:border-box;">
       <div style="display:flex; flex-direction:column; gap:12px; width:100%; margin-top:8px;">
         <mat-form-field appearance="fill">

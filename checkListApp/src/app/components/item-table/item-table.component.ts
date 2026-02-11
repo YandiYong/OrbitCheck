@@ -272,16 +272,22 @@ export class ItemTableComponent {
         return (d instanceof Date) ? (d.getDate().toString().padStart(2,'0') + '/' + (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getFullYear()) : String(d);
       })();
       const categoryIcon = this.getCategoryIcon(item.category ?? item.categoryName ?? '');
-      // Determine whether Replace action should be shown. Base rules mirror previous template logic,
-      // but if item has per-variant entries only show Replace when at least one variant still needs replacement.
-      const baseReplace = (expired || ['expired','insufficient', 'depleted'].includes(item.status)) && (!(item.replacementDate) || ((item.controlQuantity ?? 0) > 1 && ((item.replacedCount ?? 0) < (item.controlQuantity ?? 0))));
+      // Determine whether Replace action should be shown.
+      // Show Replace for expired/depleted/insufficient items unconditionally (for visibility),
+      // and for per-variant items show Replace when at least one variant needs attention
+      const baseReplace = expired || ['expired','insufficient', 'depleted'].includes(item.status);
       const hasVariants = Array.isArray(item.items) && item.items.length || Array.isArray(item.variants) && item.variants.length || Array.isArray(item.syringes) && item.syringes.length;
       let variantNeedsReplacement = false;
       if (hasVariants) {
         const candidates = Array.isArray(item.items) && item.items.length ? item.items : (Array.isArray(item.variants) && item.variants.length ? item.variants : (Array.isArray(item.syringes) && item.syringes.length ? item.syringes : []));
-        variantNeedsReplacement = candidates.some((v: any) => !!v.needsReplacement && !v.isReplacement && !v.checked);
+        // Consider a variant needing replacement if it is explicitly flagged, unavailable, or expired.
+        // Do not exclude already-checked variants here — a checked-but-depleted variant still needs Replace.
+        variantNeedsReplacement = candidates.some((v: any) => ((!!v.needsReplacement) || (v.available === false) || this.isExpired(v.expiryDate)) && !v.isReplacement);
       }
-      const canReplace = baseReplace && (!hasVariants || variantNeedsReplacement);
+      // Show Replace when the item status indicates attention (expired/depleted/insufficient)
+      // or when at least one variant specifically needs replacement.
+      // (Matches the intent in the comment above.)
+      const canReplace = baseReplace || variantNeedsReplacement;
 
       return { item, expired, statusLabel, statusColor, checkboxStyle, expiredCount, expiryDisplay, categoryIcon, canReplace };
     });

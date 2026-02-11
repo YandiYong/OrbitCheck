@@ -30,3 +30,39 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
 }
+
+/* Make dialog close icon buttons more prominent across the app */
+button[mat-dialog-close].mat-icon-button {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 6px !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)) !important;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.12) !important;
+  color: var(--color-primary-600) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease !important;
+}
+
+button[mat-dialog-close].mat-icon-button:hover {
+  transform: translateY(-2px) scale(1.04) !important;
+  box-shadow: 0 10px 26px rgba(2,6,23,0.16) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03)) !important;
+}
+
+button[mat-dialog-close].mat-icon-button:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.12) !important, 0 8px 22px rgba(2,6,23,0.14) !important;
+}
+
+/* Ensure the icon inside is sized appropriately */
+button[mat-dialog-close].mat-icon-button mat-icon {
+  font-size: 20px !important;
+}
+
+@media (max-width: 480px) {
+  button[mat-dialog-close].mat-icon-button { width:36px !important; height:36px !important; }
+  button[mat-dialog-close].mat-icon-button mat-icon { font-size:18px !important; }
+}
