@@ -8,9 +8,10 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
+import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
 
 // Runtime dialog data shape varies; use `any` to avoid adding fields to the `Item` model
-import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
+import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
 
 @Component({
   selector: 'app-replace-dialog',
@@ -26,12 +27,22 @@ import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
     FormsModule,
     MatIconModule
   ],
+  styles: [
+    `@keyframes popIn {
+      from { transform: translateY(-8px) scale(0.98); opacity: 0 }
+      to { transform: translateY(0) scale(1); opacity: 1 }
+    }
+    .in-dialog-snackbar { animation: popIn .18s cubic-bezier(.2,.9,.3,1); background: var(--color-surface); }
+    `
+  ],
   template: `
     <div style="position:relative;">
       <h2 mat-dialog-title>Replace Item</h2>
       <button mat-icon-button mat-dialog-close aria-label="Close dialog" style="position:absolute; right:8px; top:8px; background:transparent; border:none; box-shadow:none;">
         <mat-icon>close</mat-icon>
       </button>
+
+      
     </div>
     <mat-dialog-content style="max-height:60vh; overflow:auto; padding:8px; box-sizing:border-box;">
       <div style="display:flex; flex-direction:column; gap:12px; width:100%; margin-top:8px;">
@@ -92,10 +103,10 @@ export class ReplaceDialogComponent {
   expiryDateObj: Date | null = null;
   replacementDateString: string = '';
   variants: any[] = [];
-
   constructor(
     private dialogRef: MatDialogRef<ReplaceDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: any
+    @Inject(MAT_DIALOG_DATA) public data: any,
+    private globalSnack: GlobalSnackbarService
   ) {
     // initialize expiry date object from existing item expiry (expecting dd/MM/yyyy)
     const src = (data && data.item) ? data.item : data;
@@ -111,17 +122,35 @@ export class ReplaceDialogComponent {
         const expiry = v.expiryDate ?? (Array.isArray(v.expiryDates) ? v.expiryDates[0] : null) ?? null;
         return {
           ...v,
-          // ensure `description` is present (some data uses `description` for size)
           description: v.description ?? v.size ?? v.unit ?? null,
           expiryDate: expiry,
           _expiryDateObj: parseAnyDate(expiry),
           replacementDate: v.replacementDate ?? today,
-          // Treat any variant that is NOT greyed (not already replaced and not checked)
-          // as needing replacement so the dialog highlights it for attention.
           needsReplacement: !!v.needsReplacement || (!(v.isReplacement || v.checked))
         };
       });
     }
+  }
+
+  /**
+   * Return true when dialog is in a valid state to save.
+   * - Single-item mode: require an expiry date to be provided.
+   * - Variants mode: require any variant marked as replacement to include an expiry date.
+   */
+  canSave(): boolean {
+    if (this.hasVariants()) {
+      // If any variant is being replaced, ensure it has a valid expiry
+      for (const v of this.variants) {
+        const expiryRequired = !!v.isReplacement;
+        if (expiryRequired) {
+          if (!v._expiryDateObj) return false;
+          if (isBeforeToday(v._expiryDateObj)) return false;
+        }
+      }
+      return true;
+    }
+    // Single item: require an expiry date to be set when saving (force meaningful replacement)
+    return !!this.expiryDateObj && !isBeforeToday(this.expiryDateObj);
   }
 
   // Use shared helper to parse dates (accepts Date or dd/MM/yyyy)
@@ -145,7 +174,26 @@ export class ReplaceDialogComponent {
     return Array.isArray(this.variants) && this.variants.length > 0;
   }
   save() {
+    // Validate on Save: if any replacement date is missing or not in the future, block and show snackbar
     if (this.hasVariants()) {
+      for (let idx = 0; idx < this.variants.length; idx++) {
+        const v = this.variants[idx];
+        const expiryObj: Date | null = v._expiryDateObj ?? null;
+        const orig = v.expiryDate ?? null;
+        const expiryStr = this.formatDate(expiryObj);
+        const intendsReplace = (!!expiryStr && expiryStr !== orig) || !!v.needsReplacement;
+        if (intendsReplace) {
+          if (!expiryObj) {
+            this.globalSnack.show(`Variant ${v.description ?? ('#' + (idx + 1))} requires a replacement expiry date.`);
+            return;
+          }
+          if (isBeforeToday(expiryObj)) {
+            this.globalSnack.show(`Replacement date for variant ${v.description ?? ('#' + (idx + 1))} must be in the future.`);
+            return;
+          }
+        }
+      }
+
       const out = this.variants.map(v => {
         const expiryDate = this.formatDate(v._expiryDateObj);
         const orig = v.expiryDate ?? null;
@@ -155,6 +203,17 @@ export class ReplaceDialogComponent {
       this.dialogRef.close({ items: out });
       return;
     }
+
+    // Single item validation
+    if (!this.expiryDateObj) {
+      this.globalSnack.show('Please provide a replacement expiry date.');
+      return;
+    }
+    if (isBeforeToday(this.expiryDateObj)) {
+      this.globalSnack.show('Replacement date must be in the future.');
+      return;
+    }
+
     const expiry = this.formatDate(this.expiryDateObj);
     const isReplacement = !!expiry && expiry !== ((this.data.item as any)?.expiryDate ?? null);
     this.dialogRef.close({ expiryDate: expiry, replacementDate: isReplacement ? this.replacementDateString : (this.data.item as any)?.replacementDate ?? this.replacementDateString, isReplacement });
@@ -163,5 +222,6 @@ export class ReplaceDialogComponent {
   public onClose() {
     this.dialogRef.close();
   }
+
 
 }

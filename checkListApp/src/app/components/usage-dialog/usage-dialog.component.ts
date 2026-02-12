@@ -18,6 +18,7 @@ import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.compone
 import { generateInstances } from '../../utils/instance-utils';
 import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instance-detail-dialog.component';
 import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
+import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
 
 @Component({
   selector: 'app-usage-dialog',
@@ -227,6 +228,7 @@ export class UsageDialogComponent {
     private dialogRef: MatDialogRef<UsageDialogComponent>,
     private matDialog: MatDialog,
     private cdr: ChangeDetectorRef,
+    private globalSnack: GlobalSnackbarService,
     @Inject(MAT_DIALOG_DATA) public data: any
   ) {
     this.used = 0;
@@ -481,7 +483,8 @@ export class UsageDialogComponent {
       this.depletionNotice = null;
       this.errorMultiple = null;
       this.error = null;
-      // diagnostic log and force change detection so UI updates immediately
+      // notify user and force change detection so UI updates immediately
+      this.globalSnack.show('Replacement applied', 3000);
       console.log('after replacement - instanceDisabled:', Array.from(this.instanceDisabled), 'selectedIndices:', Array.from(this.selectedIndices));
       this.cdr.detectChanges();
     });
@@ -498,20 +501,7 @@ export class UsageDialogComponent {
   private closeResult(payload?: any) {
     this.dialogRef.close(payload);
   }
-
-  getStatusColor(status: string): string {
-    const colorMap: Record<string, string> = {
-      'pending': 'var(--color-warning)',
-      'Expired': 'var(--color-danger)',
-      'satisfactory': 'var(--color-success)',
-      'depleted': 'var(--color-danger)',
-      'insufficient': 'var(--color-warning)',
-      'excessive': 'var(--color-primary)',
-      'expired': 'var(--color-danger)'
-    };
-    return colorMap[status] || 'var(--color-muted)';
-  }
-
+ 
   save() {
     // clear previous errors
     this.errorMultiple = null;

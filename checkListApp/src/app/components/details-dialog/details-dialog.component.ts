@@ -5,14 +5,15 @@ import { MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
+import { StatusColorPipe } from '../../shared/status-color.pipe';
 // Use runtime `any` for items to match inventory JSON shape
 
 @Component({
   selector: 'app-details-dialog',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatDialogModule, MatDividerModule, MatIconModule],
+  imports: [CommonModule, MatCardModule, MatDialogModule, MatDividerModule, MatIconModule, StatusColorPipe],
   template: `
-    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; position:relative;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:12px;">
       <h2 style="margin:0">
         <ng-container *ngIf="hasType(); else singleTitle">
           <ng-container [ngSwitch]="getType()">
@@ -24,9 +25,6 @@ import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../.
         </ng-container>
         <ng-template #singleTitle>Item Details</ng-template>
       </h2>
-      <button mat-icon-button mat-dialog-close aria-label="Close dialog" style="position:absolute; right:8px; top:8px; background:transparent; border:none; box-shadow:none;">
-        <mat-icon>close</mat-icon>
-      </button>
     </div>
 
     <mat-divider style="margin:12px 0"></mat-divider>
@@ -47,7 +45,7 @@ import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../.
                       <div style="font-weight:700; color:var(--color-muted); font-size:0.98rem;">Expiry:</div>
                       <div style="font-weight:900; color:var(--color-warning); font-size:1.04rem;">{{ formatDateString(v.expiryDate) || '-' }}</div>
                       <div *ngIf="v.replacementDate" style="font-weight:800; color:var(--color-success); background:var(--bg-success); padding:6px 10px; border-radius:8px;">Replaced: {{ formatDateString(v.replacementDate) }}</div>
-                      <div style="margin-left:auto; font-weight:900; padding:6px 10px; border-radius:8px;" [style.color]="getStatusColor(v)">{{ getDisplayStatus(v) }}</div>
+                      <div style="margin-left:auto; font-weight:900; padding:6px 10px; border-radius:8px;" [style.color]="v | statusColor">{{ getDisplayStatus(v) }}</div>
                     </mat-card-content>
                   </mat-card>
                 </div>
@@ -57,7 +55,7 @@ import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../.
                   <div style="font-weight:700; color:var(--color-muted);">Expiry:</div>
                   <div style="font-weight:900; color:var(--color-warning);">{{ formatDateString(item.expiryDate) || '-' }}</div>
                   <div *ngIf="item.replacementDate" style="margin-left:12px; font-weight:700; color:var(--color-success);">Replaced: {{ formatDateString(item.replacementDate) }}</div>
-                  <div style="margin-left:auto; font-weight:900;" [style.color]="getStatusColor(item)">{{ getDisplayStatus(item) }}</div>
+                  <div style="margin-left:auto; font-weight:900;" [style.color]="item | statusColor">{{ getDisplayStatus(item) }}</div>
                 </div>
               </ng-template>
             </mat-card-content>
@@ -73,7 +71,7 @@ import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../.
         <mat-card-content style="margin-top:var(--space-sm);">
           <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; align-items:center;">
           <div style="font-size:0.98rem;color:var(--color-muted); font-weight:700">Status:</div>
-          <div [style.color]="getStatusColor(getItem())" style="font-weight: 900; font-size:1.06rem;">
+          <div [style.color]="getItem() | statusColor" style="font-weight: 900; font-size:1.06rem;">
             {{ getDisplayStatus(getItem()) }}
           </div>
             <div>
@@ -163,16 +161,5 @@ export class DetailsDialogComponent {
     }).length;
   }
 
-  getStatusColor(item: any | null ): string {
-    const s = this.getDisplayStatus(item);
-    const map: Record<string, string> = {
-      'pending': 'var(--color-warning)',
-      'expired': 'var(--color-danger)',
-      'depleted': 'var(--color-danger)',
-      'insufficient': 'var(--color-warning)',
-      'satisfactory': 'var(--color-success)',
-      'excessive': 'var(--color-primary)'
-    };
-    return map[s] || 'var(--color-muted)';
-  }
+  
 }

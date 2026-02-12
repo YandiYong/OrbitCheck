@@ -69,21 +69,4 @@ export class EditItemDialogComponent {
     this.dialogRef.close();
   }
 
-  private normalizeToDdMmYyyy(dateInput: string | Date | null): string | null {
-    if (!dateInput) return null;
-    if (dateInput instanceof Date) {
-      const d = dateInput.getDate().toString().padStart(2, '0');
-      const m = (dateInput.getMonth() + 1).toString().padStart(2, '0');
-      const y = dateInput.getFullYear();
-      return `${d}/${m}/${y}`;
-    }
-    const dateStr = dateInput as string;
-    // if ISO format YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
-    if (dateStr.indexOf('-') >= 0) {
-      const parts = dateStr.split('T')[0].split('-');
-      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    // assume already dd/MM/yyyy
-    return dateStr;
-  }
 }

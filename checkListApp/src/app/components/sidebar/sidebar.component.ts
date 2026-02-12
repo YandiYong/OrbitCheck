@@ -102,9 +102,6 @@ export class SidebarComponent {
       get expiredItems() {
         return this.items.filter(i => i.expiryDate && isBeforeToday(i.expiryDate));
       }
-
-      private parseExpiry(dateString: string): Date | null { return parseAnyDate(dateString); }
-
       openExpired() {
         if (!this.expiredItems.length) return;
         this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'expired', items: this.expiredItems } });

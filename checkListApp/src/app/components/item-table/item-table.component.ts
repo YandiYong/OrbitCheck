@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { StatusColorPipe } from '../../shared/status-color.pipe';
 import { MatMenuModule } from '@angular/material/menu';
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
@@ -10,7 +11,7 @@ import { isBeforeToday } from '../../utils/date-utils';
 @Component({
   selector: 'app-item-table',
   standalone: true,
-  imports: [CommonModule, MatTableModule, MatIconModule, MatButtonModule, MatCardModule, MatMenuModule],
+  imports: [CommonModule, MatTableModule, MatIconModule, MatButtonModule, MatCardModule, MatMenuModule, StatusColorPipe],
   template: `
     <table mat-table [dataSource]="computedItems" style="width:100%;" class="mat-elevation-z1 full-table">
       <!-- Status Column -->
@@ -31,7 +32,7 @@ import { isBeforeToday } from '../../utils/date-utils';
               <mat-icon *ngIf="!row.expired && row.item.checked && row.item.status === 'depleted'" style="color:var(--color-danger);">remove_circle</mat-icon>
             </div>
             <div>
-              <div *ngIf="row.statusLabel" [style.color]="row.statusColor" style="font-weight:700;">
+              <div *ngIf="row.statusLabel" [style.color]="row.statusLabel | statusColor" style="font-weight:700;">
                 {{ row.statusLabel }}
               </div>
             </div>
@@ -162,7 +163,7 @@ export class ItemTableComponent {
   @Output() toggleSubitem = new EventEmitter<{ itemId: number; index: number }>();
 
   // Precomputed lightweight view-model for each row to avoid expensive template calls
-  computedItems: Array<{ item: any; expired: boolean; statusLabel: string; statusColor: string; checkboxStyle: any; expiredCount: number; expiryDisplay: string; categoryIcon: string }> = [];
+  computedItems: Array<{ item: any; expired: boolean; statusLabel: string; checkboxStyle: any; expiredCount: number; expiryDisplay: string; categoryIcon: string }> = [];
 
   onToggle(item: any, event: Event) {
     if (this.isExpired(item.expiryDate)) {
@@ -222,17 +223,7 @@ export class ItemTableComponent {
     }
   }
 
-  getStatusColor(label: string): string {
-    const colors: Record<string, string> = {
-      'Pending': '#f59e0b',
-      'Expired': '#b91c1c',
-      'Depleted': '#b91c1c',
-      'Insufficient': '#f59e42',
-      'Satisfactory': '#16a34a',
-      'Excessive': '#0ea5e9'
-    };
-    return colors[label] || '#6b7280';
-  }
+
 
   getExpiredCount(item: any): number {
     if (!item) return 0;
@@ -263,7 +254,6 @@ export class ItemTableComponent {
       try { console.log('Item row', { id: item.id, checked: item.checked, status: item.status, usedToday: item.usedToday, controlQuantity: item.controlQuantity }); } catch(e) {}
       const expired = this.isExpired(item.expiryDate);
       const statusLabel = this.getStatusLabel(item);
-      const statusColor = this.getStatusColor(statusLabel);
       const checkboxStyle = this.getCheckboxStyle(item);
       const expiredCount = this.getExpiredCount(item);
       const expiryDisplay = (() => {
@@ -289,7 +279,7 @@ export class ItemTableComponent {
       // (Matches the intent in the comment above.)
       const canReplace = baseReplace || variantNeedsReplacement;
 
-      return { item, expired, statusLabel, statusColor, checkboxStyle, expiredCount, expiryDisplay, categoryIcon, canReplace };
+      return { item, expired, statusLabel, checkboxStyle, expiredCount, expiryDisplay, categoryIcon, canReplace };
     });
   }
 
