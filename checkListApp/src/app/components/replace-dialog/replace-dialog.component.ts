@@ -11,7 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
 
 // Runtime dialog data shape varies; use `any` to avoid adding fields to the `Item` model
-import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
+import { parseAnyDate, formatDDMMYYYY, isBeforeToday, isValidFutureDate, validateEditableDates } from '../../utils/date-utils';
 
 @Component({
   selector: 'app-replace-dialog',
@@ -59,7 +59,7 @@ import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-ut
                     <tr style="text-align:left; border-bottom:1px solid #e5e7eb;">
                       <th style="padding:6px 8px;">Description</th>
                       <th style="padding:6px 8px;">Expiring Date</th>
-                      <th style="padding:6px 8px;">Replacement Date1</th>
+                      <th style="padding:6px 8px;">Replacement Date</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -120,12 +120,15 @@ export class ReplaceDialogComponent {
       const today = this.replacementDateString;
       this.variants = vs.map((v: any) => {
         const expiry = v.expiryDate ?? (Array.isArray(v.expiryDates) ? v.expiryDates[0] : null) ?? null;
+        // Normalize any incoming replacementDate (ISO or other) to project dd/MM/yyyy format for display
+        const rawRep = v.replacementDate ?? null;
+        const normRep = rawRep ? (formatDDMMYYYY(parseAnyDate(rawRep)) ?? String(rawRep)) : today;
         return {
           ...v,
           description: v.description ?? v.size ?? v.unit ?? null,
           expiryDate: expiry,
           _expiryDateObj: parseAnyDate(expiry),
-          replacementDate: v.replacementDate ?? today,
+          replacementDate: normRep,
           needsReplacement: !!v.needsReplacement || (!(v.isReplacement || v.checked))
         };
       });
@@ -139,18 +142,14 @@ export class ReplaceDialogComponent {
    */
   canSave(): boolean {
     if (this.hasVariants()) {
-      // If any variant is being replaced, ensure it has a valid expiry
-      for (const v of this.variants) {
-        const expiryRequired = !!v.isReplacement;
-        if (expiryRequired) {
-          if (!v._expiryDateObj) return false;
-          if (isBeforeToday(v._expiryDateObj)) return false;
-        }
-      }
-      return true;
+      // Validate variant editable dates using shared validator
+      const map: Record<number, string | null | undefined> = {};
+      this.variants.forEach((v: any, idx: number) => { map[idx] = v._expiryDateObj ?? null; });
+      const res = validateEditableDates(map);
+      return res.valid;
     }
-    // Single item: require an expiry date to be set when saving (force meaningful replacement)
-    return !!this.expiryDateObj && !isBeforeToday(this.expiryDateObj);
+    // Single item: require an expiry date to be set and be today/future
+    return !!this.expiryDateObj && isValidFutureDate(this.expiryDateObj);
   }
 
   // Use shared helper to parse dates (accepts Date or dd/MM/yyyy)
@@ -176,23 +175,11 @@ export class ReplaceDialogComponent {
   save() {
     // Validate on Save: if any replacement date is missing or not in the future, block and show snackbar
     if (this.hasVariants()) {
-      for (let idx = 0; idx < this.variants.length; idx++) {
-        const v = this.variants[idx];
-        const expiryObj: Date | null = v._expiryDateObj ?? null;
-        const orig = v.expiryDate ?? null;
-        const expiryStr = this.formatDate(expiryObj);
-        const intendsReplace = (!!expiryStr && expiryStr !== orig) || !!v.needsReplacement;
-        if (intendsReplace) {
-          if (!expiryObj) {
-            this.globalSnack.show(`Variant ${v.description ?? ('#' + (idx + 1))} requires a replacement expiry date.`);
-            return;
-          }
-          if (isBeforeToday(expiryObj)) {
-            this.globalSnack.show(`Replacement date for variant ${v.description ?? ('#' + (idx + 1))} must be in the future.`);
-            return;
-          }
-        }
-      }
+      // Use centralized validator to check editable dates
+      const map: Record<number, string | null | undefined> = {};
+      this.variants.forEach((v: any, idx: number) => { map[idx] = v._expiryDateObj ?? null; });
+      const res = validateEditableDates(map);
+      if (!res.valid) { this.globalSnack.show(res.message || 'Invalid dates'); return; }
 
       const out = this.variants.map(v => {
         const expiryDate = this.formatDate(v._expiryDateObj);
@@ -205,12 +192,8 @@ export class ReplaceDialogComponent {
     }
 
     // Single item validation
-    if (!this.expiryDateObj) {
-      this.globalSnack.show('Please provide a replacement expiry date.');
-      return;
-    }
-    if (isBeforeToday(this.expiryDateObj)) {
-      this.globalSnack.show('Replacement date must be in the future.');
+    if (!this.expiryDateObj || !isValidFutureDate(this.expiryDateObj)) {
+      this.globalSnack.show('Replacement date must be today or in the future.');
       return;
     }
 

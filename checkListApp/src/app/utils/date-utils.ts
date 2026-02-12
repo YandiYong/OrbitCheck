@@ -56,3 +56,32 @@ export function formatDateTimeSAST(d: Date | null | undefined): string | null {
     return `${pad(dd.getDate())}/${pad(dd.getMonth() + 1)}/${dd.getFullYear()} ${pad(dd.getHours())}:${pad(dd.getMinutes())}:${pad(dd.getSeconds())}`;
   }
 }
+
+/**
+ * Return true when the given date-like value is a valid date and is today or in the future.
+ * Accepts Date objects or strings (dd/MM/yyyy or ISO-like) via `parseAnyDate`.
+ */
+export function isValidFutureDate(dateLike: string | Date | null | undefined): boolean {
+  const d = parseAnyDate(dateLike);
+  if (!d) return false;
+  d.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d.getTime() >= today.getTime();
+}
+
+/**
+ * Validate a map of editable dates (e.g. {0: '12/02/2026', 1: null}) and
+ * return an object describing validity and an optional message.
+ */
+export function validateEditableDates(dates: Record<number, string | null | undefined>): { valid: boolean; message?: string } {
+  for (const k of Object.keys(dates)) {
+    const idx = Number(k);
+    const v = dates[idx];
+    if (!v) continue;
+    const parsed = parseAnyDate(v);
+    if (!parsed) return { valid: false, message: 'One or more dates are invalid. Use dd/MM/yyyy.' };
+    if (!isValidFutureDate(parsed)) return { valid: false, message: 'Replacement expiry dates cannot be in the past.' };
+  }
+  return { valid: true };
+}

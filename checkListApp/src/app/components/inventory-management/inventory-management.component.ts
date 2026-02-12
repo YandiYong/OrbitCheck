@@ -508,11 +508,12 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           item,
           instances,
           isMultipleRequired: true,
-          onReplaceImmediate: (index: number, newInst: any) => {
+            onReplaceImmediate: (index: number, newInst: any) => {
             // enqueue per-item replacement so it doesn't race with other ops
             this.enqueueItemOp(item.id, () => {
               // Apply a replacement immediately to inventory for visual update
-              const now = new Date().toISOString();
+              const nowIso = new Date().toISOString();
+              const now = this.formatDate(new Date()) ?? nowIso;
               this.inventory.update(items => items.map(i => {
                 if (i.id !== item.id) return i;
                 const required = i.controlQuantity ?? 0;
@@ -829,7 +830,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
       // Support replacing per-item entries (formerly 'variants') returned as `items`
       if (result && Array.isArray(result.items)) {
-        const now = new Date().toISOString();
+        const nowIso = new Date().toISOString();
+        const now = this.formatDate(new Date()) ?? nowIso;
         // Serialize per-item merge so concurrent dialogs/operations don't race
         this.enqueueItemOp(item.id, () => {
           this.inventory.update(items => items.map(i => {

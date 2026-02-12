@@ -17,7 +17,7 @@ import { FormsModule } from '@angular/forms';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
 import { generateInstances } from '../../utils/instance-utils';
 import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instance-detail-dialog.component';
-import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
+import { parseAnyDate, formatDDMMYYYY, isBeforeToday, validateEditableDates } from '../../utils/date-utils';
 import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
 
 @Component({
@@ -242,9 +242,6 @@ export class UsageDialogComponent {
     return parseAnyDate(dateString);
   }
 
-  private formatDate(d: Date | null): string {
-    return formatDDMMYYYY(d) || '';
-  }
 
   toggleHelp() {
     this.showHelp = !this.showHelp;
@@ -505,6 +502,14 @@ export class UsageDialogComponent {
   save() {
     // clear previous errors
     this.errorMultiple = null;
+
+    // Centralized validation for any edited expiry dates
+    const edited = this.formatEditableDates();
+    const res = validateEditableDates(edited);
+    if (!res.valid) {
+      this.globalSnack.show(res.message || 'Invalid dates');
+      return;
+    }
 
     if (this.data.isMultipleRequired) {
       // For multiple required items, allow confirm when no instances are present (all depleted)
