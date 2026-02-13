@@ -1,5 +1,6 @@
 export interface CheckList{
     Lists: List[];
+    session: Session;
 }
 
 export interface List{
@@ -25,6 +26,11 @@ export interface Item{
     description: string;
     replacementDate?: Date;
     checkedDate?: Date;
-    
-  
+}
+
+export interface Session {
+  id?: number;
+  startedAt: Date;
+  endedAt?: Date;
+  sessionType: 'Morning Shift' | 'Afternoon Shift' | 'Resuscitation';
 }

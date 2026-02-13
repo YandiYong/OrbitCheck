@@ -16,7 +16,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
-import { Item } from '../../models/item';
+import { Item, Session } from '../../models/item';
 import { parseAnyDate, formatDDMMYYYY, isBeforeToday, formatDateTimeSAST } from '../../utils/date-utils';
 import { DailyChecklistService } from '../../services/daily-checklist.service';
 import { InventoryApiService } from '../../services/inventory-api.service';
@@ -119,7 +119,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
           <mat-form-field appearance="fill" style="width:100%; background:var(--color-surface); border-radius:var(--radius-sm); padding:var(--space-xs) var(--space-sm); box-shadow:0 1px 2px rgba(0,0,0,0.04);">
             <mat-label>Session</mat-label>
             <mat-select [value]="selectedSession()" (selectionChange)="selectedSession.set($event.value)">
-              <mat-option *ngFor="let s of sessionTypes" [value]="s.key">{{s.label}}</mat-option>
+              <mat-option *ngFor="let s of sessionTypes" [value]="s.sessionType">{{s.label}}</mat-option>
             </mat-select>
           </mat-form-field>
           <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
@@ -170,12 +170,12 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
 })
 export class InventoryManagementComponent implements OnInit, OnDestroy {
   private timerId: any = null;
-  sessionTypes = [
-    { key: 'morning', label: 'Morning Shift' },
-    { key: 'afternoon', label: 'Afternoon Shift' },
-    { key: 'emergency', label: 'Emergency Event' }
+  sessionTypes: Array<{ sessionType: Session['sessionType']; label: Session['sessionType'] }> = [
+    { sessionType: 'Morning Shift', label: 'Morning Shift' },
+    { sessionType: 'Afternoon Shift', label: 'Afternoon Shift' },
+    { sessionType: 'Resuscitation', label: 'Resuscitation' }
   ];
-  selectedSession = signal<string>('morning');
+  selectedSession = signal<Session['sessionType']>('Morning Shift');
   activeSession = signal<any | null>(null);
   now = signal<Date>(new Date());
   loading = signal<boolean>(false);
@@ -206,7 +206,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     // regardless of current `status` (available/unavailable).
     return this.filteredInventory().filter(i => {
       if (!i.checkedDate) return false;
-      const d = new Date(i.checkedDate);
+      const d = this.parseDateTime(i.checkedDate) ?? this.parseDate(i.checkedDate);
+      if (!d) return false;
       return d >= start && d <= end;
     });
   });
@@ -832,6 +833,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
       if (result && Array.isArray(result.items)) {
         const nowIso = new Date().toISOString();
         const now = this.formatDate(new Date()) ?? nowIso;
+        const checkedNow = formatDateTimeSAST(new Date()) ?? nowIso;
         // Serialize per-item merge so concurrent dialogs/operations don't race
         this.enqueueItemOp(item.id, () => {
           this.inventory.update(items => items.map(i => {
@@ -927,7 +929,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
             try {
               const isCheckedNow = (availableCount >= required);
               newItem.checked = !!isCheckedNow;
-              newItem.checkedDate = isCheckedNow ? now : null;
+              newItem.checkedDate = isCheckedNow ? checkedNow : null;
             } catch (e) {}
           } catch (e) {
             // ignore
@@ -951,7 +953,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
               const required = i.controlQuantity ?? 0;
               const isCheckedNow = (availableCount >= required);
               newItem.checked = !!isCheckedNow;
-              newItem.checkedDate = isCheckedNow ? now : null;
+              newItem.checkedDate = isCheckedNow ? checkedNow : null;
             } catch (e) {}
             // keep usedToday in sync with merged variants (already computed)
           }

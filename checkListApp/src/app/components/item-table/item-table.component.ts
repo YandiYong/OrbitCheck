@@ -6,7 +6,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { isBeforeToday } from '../../utils/date-utils';
+import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/date-utils';
 
 @Component({
   selector: 'app-item-table',
@@ -125,7 +125,7 @@ import { isBeforeToday } from '../../utils/date-utils';
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:var(--space-lg);">Checked</th>
         <td mat-cell *matCellDef="let row" style="padding:var(--space-lg);">
           <div style="color:var(--color-subtle); font-weight:600;">
-            {{ row.item.checkedDate ? (row.item.checkedDate | date:'dd/MM/yyyy HH:mm':'Africa/Johannesburg') : '-' }}
+            {{ formatCheckedDate(row.item.checkedDate) }}
           </div>
         </td>
       </ng-container>
@@ -178,6 +178,16 @@ export class ItemTableComponent {
     if (!date) return false;
     return isBeforeToday(date);
   }
+
+  formatCheckedDate(dateLike: string | Date | null | undefined): string {
+    if (!dateLike) return '-';
+    const raw = String(dateLike).trim();
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}(\s+\d{1,2}:\d{2}(:\d{2})?)?$/.test(raw)) return raw;
+    const parsed = parseAnyDate(dateLike);
+    if (!parsed) return '-';
+    return formatDateTimeSAST(parsed) ?? raw;
+  }
+
   getCheckboxStyle(item: any) {
     if (this.isExpired(item.expiryDate)) {
       return { borderColor: '#dc2626', backgroundColor: '#fff1f2' };

@@ -48,9 +48,17 @@ import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
             <div class="ud-item-title">{{ data.item.name }}</div>
             <div class="ud-field-wrap">
               <div class="ud-label-pop">Item Count:</div>
-              <mat-form-field appearance="fill" class="ud-field">
-                <input matInput type="number" min="0" [max]="(data.item.controlQuantity ?? 0) + 5" [(ngModel)]="used" />
-              </mat-form-field>
+              <div class="ud-qty-control" role="group" aria-label="Adjust item count">
+                <button mat-mini-fab type="button" color="primary" class="ud-qty-btn" aria-label="Decrease item count" (click)="decrementUsed()">
+                  <mat-icon class="ud-qty-icon">remove</mat-icon>
+                </button>
+                <mat-form-field appearance="fill" class="ud-field ud-field-pop">
+                  <input matInput type="number" min="0" [max]="maxUsed" [(ngModel)]="used" (ngModelChange)="onUsedChange($event)" aria-label="Item count" />
+                </mat-form-field>
+                <button mat-mini-fab type="button" color="primary" class="ud-qty-btn" aria-label="Increase item count" (click)="incrementUsed()">
+                  <mat-icon class="ud-qty-icon">add</mat-icon>
+                </button>
+              </div>
             </div>
 
             <div *ngIf="error" class="ud-error">{{ error }}</div>
@@ -131,6 +139,24 @@ import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
     .ud-item-title { font-weight:700; color: var(--color-text); font-size:1rem; }
     .ud-item-title.small { font-size:0.95rem; color: var(--color-subtle); }
     .ud-field { width:160px; }
+    .ud-field-pop { width:140px; }
+    .ud-qty-control { display:flex; align-items:center; gap:var(--space-sm); }
+    .ud-qty-btn {
+      width:40px;
+      height:40px;
+      min-width:40px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--color-primary-600);
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+    .ud-qty-btn:hover { transform: scale(1.06); }
+    .ud-qty-btn:active { transform: scale(0.98); }
+    .ud-qty-btn:focus-visible { outline: 2px solid var(--color-primary-600); outline-offset: 2px; }
+    .ud-qty-icon { font-size:1.3rem; width:1.3rem; height:1.3rem; font-weight:700; }
+    .ud-field-pop input[type=number]::-webkit-outer-spin-button,
+    .ud-field-pop input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .ud-field-pop input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+    .ud-field-pop input[matInput] { text-align:center; font-size:1.08rem; font-weight:600; }
     .ud-input { width:120px; padding:var(--space-xs) var(--space-sm); border:1px solid var(--color-border); border-radius:var(--radius-sm); font-size:0.95rem; }
     .ud-error { color: var(--color-danger); }
     .ud-label-pop { font-weight:700; color:#083344; font-size:0.95rem; background: linear-gradient(90deg,var(--bg-pale),var(--bg-info)); padding:var(--space-xs) var(--space-sm); border-radius:var(--radius-md); box-shadow:0 2px 6px rgba(2,6,23,0.06); display:inline-block; }
@@ -195,6 +221,9 @@ import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
 export class UsageDialogComponent {
   // Numeric count entered by the user on the 'count' step
   used: number = 0;
+  get maxUsed(): number {
+    return (this.data?.item?.controlQuantity ?? 0) + 5;
+  }
   // Validation message for numeric entry
   error: string | null = null;
   // Validation message shown during review when selection rules fail
@@ -240,6 +269,25 @@ export class UsageDialogComponent {
 
   private parseDate(dateString: string | Date | null | undefined): Date | null {
     return parseAnyDate(dateString);
+  }
+
+  onUsedChange(value: number | string | null) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+      this.used = 0;
+      return;
+    }
+    this.used = Math.min(this.maxUsed, Math.max(0, parsed));
+  }
+
+  incrementUsed() {
+    this.used = Math.min(this.maxUsed, (Number(this.used) || 0) + 1);
+    this.error = null;
+  }
+
+  decrementUsed() {
+    this.used = Math.max(0, (Number(this.used) || 0) - 1);
+    this.error = null;
   }
 
 
