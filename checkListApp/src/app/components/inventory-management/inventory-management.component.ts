@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, OnDestroy, ChangeDetectorRef, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,7 +8,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -32,6 +32,74 @@ import { HttpClientModule } from '@angular/common/http';
 
 import{DsvSignatureFormComponent,DsvStoredListComponent,SignatureApiService} from 'signature';
 import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
+
+@Component({
+  selector: 'app-message-dialog',
+  standalone: true,
+  imports: [CommonModule, MatDialogModule, MatButtonModule],
+  template: `
+    <h2 mat-dialog-title class="md-title">{{ data?.title || 'Message' }}</h2>
+    <mat-dialog-content class="md-content">
+      <p class="md-message">{{ data?.message || '' }}</p>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end" class="md-actions">
+      <button mat-flat-button color="primary" class="md-btn" (click)="close()">{{ data?.buttonText || 'OK' }}</button>
+    </mat-dialog-actions>
+  `,
+  styles: [
+    `:host {
+      display: block;
+      font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+    }
+    .md-title {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--color-text);
+      letter-spacing: 0.01em;
+    }
+    .md-content {
+      padding-top: var(--space-xs);
+    }
+    .md-message {
+      margin: 0;
+      padding: var(--space-md);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-surface-3);
+      border-left: 4px solid var(--color-primary);
+      background: var(--bg-info);
+      color: var(--color-text);
+      line-height: 1.45;
+      box-shadow: var(--shadow-sm);
+    }
+    .md-actions {
+      padding-top: var(--space-sm);
+    }
+    .md-btn {
+      min-width: 120px;
+      box-shadow: var(--shadow-sm);
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+    .md-btn:hover {
+      transform: translateY(-1px) scale(1.02);
+    }
+    .md-btn:focus-visible {
+      outline: 2px solid var(--color-primary-600);
+      outline-offset: 2px;
+    }
+    `
+  ]
+})
+export class MessageDialogComponent {
+  constructor(
+    private dialogRef: MatDialogRef<MessageDialogComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: { title?: string; message?: string; buttonText?: string; result?: string }
+  ) {}
+
+  close() {
+    this.dialogRef.close(this.data?.result ?? true);
+  }
+}
 
 
 @Component({
@@ -117,7 +185,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
         
         <mat-card style="width:320px; margin-left:1300px; display:inline-block; vertical-align:top;">
           <mat-form-field appearance="fill" style="width:100%; background:var(--color-surface); border-radius:var(--radius-sm); padding:var(--space-xs) var(--space-sm); box-shadow:0 1px 2px rgba(0,0,0,0.04);">
-            <mat-label>Session</mat-label>
+            <mat-label>Select check list type</mat-label>
             <mat-select [value]="selectedSession()" (selectionChange)="selectedSession.set($event.value)">
               <mat-option *ngFor="let s of sessionTypes" [value]="s.sessionType">{{s.label}}</mat-option>
             </mat-select>
@@ -170,12 +238,13 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
 })
 export class InventoryManagementComponent implements OnInit, OnDestroy {
   private timerId: any = null;
+  private completionDialogOpen = false;
   sessionTypes: Array<{ sessionType: Session['sessionType']; label: Session['sessionType'] }> = [
-    { sessionType: 'Morning Shift', label: 'Morning Shift' },
-    { sessionType: 'Afternoon Shift', label: 'Afternoon Shift' },
+    { sessionType: 'Pre-Check', label: 'Pre-Check' },
+    { sessionType: 'Post-Check', label: 'Post-Check' },
     { sessionType: 'Resuscitation', label: 'Resuscitation' }
   ];
-  selectedSession = signal<Session['sessionType']>('Morning Shift');
+  selectedSession = signal<Session['sessionType'] | null>(null);
   activeSession = signal<any | null>(null);
   now = signal<Date>(new Date());
   loading = signal<boolean>(false);
@@ -486,10 +555,75 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
   private formatDate(d: Date | null): string | null { return formatDDMMYYYY(d); }
 
+  private promptSelectSession() {
+    this.dialog.open(MessageDialogComponent, {
+      width: '420px',
+      data: {
+        title: 'Select Session',
+        message: 'Please select a session before pressing Start.',
+        buttonText: 'OK'
+      }
+    });
+  }
+
+  private openAllItemsCompletedDialog() {
+    if (this.completionDialogOpen) return;
+    this.completionDialogOpen = true;
+    const ref = this.dialog.open(MessageDialogComponent, {
+      width: '420px',
+      data: {
+        title: 'Checklist Complete',
+        message: 'All items completed',
+        buttonText: 'Finish',
+        result: 'finish'
+      }
+    });
+
+    ref.afterClosed().subscribe((result: any) => {
+      this.completionDialogOpen = false;
+      if (result === 'finish' && this.activeSession()) {
+        this.finishSession();
+      }
+    });
+  }
+
+  private openNextUncheckedItemAfter(currentItemId: number) {
+    if (currentItemId == null) return;
+    const listed = this.dateFilteredItems();
+    if (!Array.isArray(listed) || listed.length === 0) return;
+    const currentIndex = listed.findIndex((x: any) => x?.id === currentItemId);
+    const startIndex = currentIndex >= 0 ? currentIndex : -1;
+
+    const afterCurrent = listed.slice(startIndex + 1).find((x: any) => !x?.checked && typeof x?.controlQuantity === 'number');
+    const beforeCurrent = startIndex >= 0
+      ? listed.slice(0, startIndex + 1).find((x: any) => !x?.checked && typeof x?.controlQuantity === 'number')
+      : listed.find((x: any) => !x?.checked && typeof x?.controlQuantity === 'number');
+
+    const nextItem = afterCurrent ?? beforeCurrent;
+    if (!nextItem) {
+      this.openAllItemsCompletedDialog();
+      return;
+    }
+
+    setTimeout(() => this.handleCheckboxClick(nextItem), 0);
+  }
+
   
 
   // Open details dialog for a specific item
   handleCheckboxClick(item: any) {
+    if (!this.activeSession()) {
+      this.dialog.open(MessageDialogComponent, {
+        width: '420px',
+        data: {
+          title: 'Start Session',
+          message: 'Select a session and press Start before performing the checklist.',
+          buttonText: 'OK'
+        }
+      });
+      return;
+    }
+
     // prevent toggling if item is expired and awaiting replacement
     if (this.isExpired(item.expiryDate)) return;
 
@@ -561,6 +695,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
       ref.afterClosed().subscribe((res: any) => {
         if (!res || typeof res.used !== 'number') return; // user cancelled or no value
+        const shouldAutoAdvance = !!res.autoAdvance;
+        const currentItemId = item.id;
         // Normalize availableCount and indices: ensure we never mark more instances available
         const rawAvailable = (res.availableCount == null) ? null : Number(res.availableCount);
         const availableCount = Number.isFinite(rawAvailable) ? Math.max(0, Math.floor(rawAvailable as number)) : null;
@@ -579,7 +715,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         }
 
         // enqueue the merge so it doesn't race with other per-item ops
-        this.enqueueItemOp(item.id, () => {
+        const op = this.enqueueItemOp(item.id, () => {
           this.inventory.update(items => items.map(i => {
             if (i.id !== item.id) return i;
             const required = i.controlQuantity ?? 0;
@@ -676,6 +812,10 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
             try { this.cdr.detectChanges(); } catch (e) {}
             this.saveTodaySnapshot();
         });
+
+        if (shouldAutoAdvance) {
+          op.finally(() => this.openNextUncheckedItemAfter(currentItemId));
+        }
       });
       return;
     }
@@ -686,6 +826,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
       const ref = this.dialog.open(UsageDialogComponent, { width: '700px', data: { item } });
       ref.afterClosed().subscribe((res: any) => {
         if (!res || typeof res.used !== 'number') return; // user cancelled or no value
+        const shouldAutoAdvance = !!res.autoAdvance;
+        const currentItemId = item.id;
         let used = res.used;
         this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
@@ -712,6 +854,9 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           return { ...i, checked: newChecked, status, checkedDate: now, usageHistory: history, usedToday: used };
         }));
         this.saveTodaySnapshot();
+        if (shouldAutoAdvance) {
+          this.openNextUncheckedItemAfter(currentItemId);
+        }
       });
       return;
     }
@@ -758,6 +903,18 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   }
 
   public handleSubitemToggle(event: { itemId: number; index: number }) {
+    if (!this.activeSession()) {
+      this.dialog.open(MessageDialogComponent, {
+        width: '420px',
+        data: {
+          title: 'Start Session',
+          message: 'Select a session and press Start before performing the checklist.',
+          buttonText: 'OK'
+        }
+      });
+      return;
+    }
+
     this.inventory.update(items => items.map(i => {
       if (i.id !== event.itemId) return i;
       // prevent toggling subitems if the parent item is expired
@@ -981,7 +1138,12 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   }
 
   startSession() {
-    const session = this.dailyService.startSession(this.selectedSession());
+    const selected = this.selectedSession();
+    if (!selected) {
+      this.promptSelectSession();
+      return;
+    }
+    const session = this.dailyService.startSession(selected);
     // persist a lightweight snapshot when starting
     this.saveTodaySnapshot();
     this.activeSession.set(session);
@@ -989,7 +1151,10 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
   finishSession() {
     const snapshotEnd = this.inventory().map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null, usedToday: i.usedToday ?? null }));
-    const finished = this.dailyService.finishSession(this.selectedSession(), snapshotEnd);
+    const active = this.activeSession();
+    const sessionType = active?.type ?? this.selectedSession();
+    if (!sessionType) return null;
+    const finished = this.dailyService.finishSession(sessionType, snapshotEnd);
     // persist one more time
     this.saveTodaySnapshot();
     this.activeSession.set(null);

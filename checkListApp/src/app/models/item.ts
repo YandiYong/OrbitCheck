@@ -32,5 +32,5 @@ export interface Session {
   id?: number;
   startedAt: Date;
   endedAt?: Date;
-  sessionType: 'Morning Shift' | 'Afternoon Shift' | 'Resuscitation';
+  sessionType: 'Pre-Check' | 'Post-Check' | 'Resuscitation';
 }

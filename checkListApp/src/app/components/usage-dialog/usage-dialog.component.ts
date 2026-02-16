@@ -313,19 +313,42 @@ export class UsageDialogComponent {
       this.data.instances = generateInstances(this.data.item || {});
     }
 
-    // If entered count differs from controlQuantity, handle depleted (count=0) specially
-    // otherwise show an inline mismatch message and allow the user to Skip/Continue.
-    if (typeof q === 'number' && this.used !== q) {
-      if (q >= 1 && this.used === 0) {
-        this.depletionNotice = `Entered count (${this.used}) is less than required (${q}). Item appears depleted.`;
-        this.startedDepleted = true;
+    if (typeof q === 'number') {
+      // If used equals required, complete this item immediately and return to the list
+      // so the next item starts again from step 1.
+      if (this.used === q) {
+        if (this.data.isMultipleRequired) {
+          const instancesAll = Array.isArray(this.data.instances) ? this.data.instances : [];
+          const availableLimit = Math.min(Math.max(0, this.used), instancesAll.length);
+          const availableIndices = instancesAll.map((_: any, idx: number) => idx).slice(0, availableLimit);
+          const depletedIndices = instancesAll.map((_: any, idx: number) => idx).slice(availableLimit);
+          this.closeResult({
+            used: this.used,
+            availableCount: this.used,
+            notAvailableCount: 0,
+            autoAdvance: true,
+            updatedDates: this.formatEditableDates(),
+            availableIndices,
+            depletedIndices
+          });
+          return;
+        }
+        this.closeResult({ used: this.used, autoAdvance: true });
         return;
       }
 
-      const reason: 'low' | 'high' = this.used < q ? 'low' : 'high';
-      const msg = this.used < q
-        ? `Entered count (${this.used}) is less than required (${q}). Recount the trolley and check for hidden or stacked items. Click "Cancel" to change the count, or "Skip and continue" to proceed to the review and mark items manually.`
-        : `Entered count (${this.used}) is greater than required (${q}). Recount to avoid double-counting. Click "Cancel" to correct the count, or "Continue" to proceed to the review and indicate which items are present.`;
+      // If used is lower than required, go directly to step 2 for review/selection.
+      if (this.used < q) {
+        this.countMismatch = null;
+        this.depletionNotice = null;
+        this.startedDepleted = false;
+        this.prepareInstancesAndReview();
+        return;
+      }
+
+      // If used is greater than required, keep existing warning/confirmation flow.
+      const reason: 'high' = 'high';
+      const msg = `Entered count (${this.used}) is greater than required (${q}). Recount to avoid double-counting. Click "Cancel" to correct the count, or "Continue" to proceed to the review and indicate which items are present.`;
       this.countMismatch = { reason, message: msg };
       return;
     }
