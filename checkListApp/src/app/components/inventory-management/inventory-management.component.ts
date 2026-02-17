@@ -505,6 +505,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
       data: {
         title: 'Checklist Complete',
         message: 'All items completed',
+        cancelButtonText: 'Cancel',
+        cancelResult: 'cancel',
         buttonText: 'Finish',
         result: 'finish'
       }

@@ -8,6 +8,8 @@ export interface MessageDialogData {
   message?: string;
   buttonText?: string;
   result?: string;
+  cancelButtonText?: string;
+  cancelResult?: string;
 }
 
 @Component({
@@ -20,6 +22,7 @@ export interface MessageDialogData {
       <p class="md-message">{{ data?.message || '' }}</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end" class="md-actions">
+      <button *ngIf="data?.cancelButtonText" cdkFocusInitial mat-button class="md-btn" (click)="cancel()">{{ data?.cancelButtonText }}</button>
       <button mat-flat-button color="primary" class="md-btn" (click)="close()">{{ data?.buttonText || 'OK' }}</button>
     </mat-dialog-actions>
   `,
@@ -75,5 +78,9 @@ export class MessageDialogComponent {
 
   close() {
     this.dialogRef.close(this.data?.result ?? true);
+  }
+
+  cancel() {
+    this.dialogRef.close(this.data?.cancelResult ?? 'cancel');
   }
 }
