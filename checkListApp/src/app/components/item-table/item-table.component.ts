@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { StatusColorPipe } from '../../shared/status-color.pipe';
+import { StatusLabelPipe } from '../../shared/status-label.pipe';
 import { MatMenuModule } from '@angular/material/menu';
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
@@ -11,7 +12,7 @@ import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/dat
 @Component({
   selector: 'app-item-table',
   standalone: true,
-  imports: [CommonModule, MatTableModule, MatIconModule, MatButtonModule, MatCardModule, MatMenuModule, StatusColorPipe],
+  imports: [CommonModule, MatTableModule, MatIconModule, MatButtonModule, MatCardModule, MatMenuModule, StatusColorPipe, StatusLabelPipe],
   template: `
     <table mat-table [dataSource]="computedItems" style="width:100%;" class="mat-elevation-z1 full-table">
       <!-- Status Column -->
@@ -32,8 +33,8 @@ import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/dat
               <mat-icon *ngIf="!row.expired && row.item.checked && row.item.status === 'depleted'" style="color:var(--color-danger);">remove_circle</mat-icon>
             </div>
             <div>
-              <div *ngIf="row.statusLabel" [style.color]="row.statusLabel | statusColor" style="font-weight:700;">
-                {{ row.statusLabel }}
+              <div *ngIf="row.item | statusLabel as statusLabel" [style.color]="statusLabel | statusColor" style="font-weight:700;">
+                {{ statusLabel }}
               </div>
             </div>
           </div>
@@ -163,7 +164,7 @@ export class ItemTableComponent {
   @Output() toggleSubitem = new EventEmitter<{ itemId: number; index: number }>();
 
   // Precomputed lightweight view-model for each row to avoid expensive template calls
-  computedItems: Array<{ item: any; expired: boolean; statusLabel: string; checkboxStyle: any; expiredCount: number; expiryDisplay: string; categoryIcon: string }> = [];
+  computedItems: Array<{ item: any; expired: boolean; checkboxStyle: any; expiredCount: number; expiryDisplay: string; categoryIcon: string }> = [];
 
   onToggle(item: any, event: Event) {
     if (this.isExpired(item.expiryDate)) {
@@ -216,25 +217,6 @@ export class ItemTableComponent {
     return found?.icon ?? 'inventory_2';
   }
 
-  getStatusLabel(item: any): string {
-    if (this.isExpired(item.expiryDate)) return 'Expired';
-    // Only show a status label when the item is checked or it's expired
-    if (!item.checked && !this.isExpired(item.expiryDate)) return '';
-    const status = item.status ?? '';
-    const visibleStatuses = new Set(['depleted', 'insufficient', 'satisfactory', 'excessive', 'expired']);
-    if (!visibleStatuses.has(status)) return '';
-    switch (status) {
-      case 'depleted': return 'Depleted';
-      case 'insufficient': return 'Insufficient';
-      case 'satisfactory': return 'Satisfactory';
-      case 'excessive': return 'Excessive';
-      case 'expired': return 'Expired';
-      default: return '';
-    }
-  }
-
-
-
   getExpiredCount(item: any): number {
     if (!item) return 0;
     const now = new Date();
@@ -263,7 +245,6 @@ export class ItemTableComponent {
     this.computedItems = (this._items || []).map(item => {
       try { console.log('Item row', { id: item.id, checked: item.checked, status: item.status, usedToday: item.usedToday, controlQuantity: item.controlQuantity }); } catch(e) {}
       const expired = this.isExpired(item.expiryDate);
-      const statusLabel = this.getStatusLabel(item);
       const checkboxStyle = this.getCheckboxStyle(item);
       const expiredCount = this.getExpiredCount(item);
       const expiryDisplay = (() => {
@@ -289,7 +270,7 @@ export class ItemTableComponent {
       // (Matches the intent in the comment above.)
       const canReplace = baseReplace || variantNeedsReplacement;
 
-      return { item, expired, statusLabel, checkboxStyle, expiredCount, expiryDisplay, categoryIcon, canReplace };
+      return { item, expired, checkboxStyle, expiredCount, expiryDisplay, categoryIcon, canReplace };
     });
   }
 

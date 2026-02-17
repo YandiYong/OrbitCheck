@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, OnInit, OnDestroy, ChangeDetectorRef, Inject } from '@angular/core';
+import { Component, computed, inject, signal, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,7 +8,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -16,8 +16,8 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
-import { Item, Session } from '../../models/item';
-import { parseAnyDate, formatDDMMYYYY, isBeforeToday, formatDateTimeSAST } from '../../utils/date-utils';
+import { Session } from '../../models/item';
+import { parseAnyDate, formatDDMMYYYY, formatDateTimeSAST } from '../../utils/date-utils';
 import { DailyChecklistService } from '../../services/daily-checklist.service';
 import { InventoryApiService } from '../../services/inventory-api.service';
 import { ReplaceDialogComponent } from '../replace-dialog/replace-dialog.component';
@@ -29,79 +29,10 @@ import { ItemTableComponent } from '../item-table/item-table.component';
 import { UsageDialogComponent } from '../usage-dialog/usage-dialog.component';
 import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.component';
 import { HttpClientModule } from '@angular/common/http';
+import { MessageDialogComponent } from '../../shared/message-dialog.component';
 
 import{DsvSignatureFormComponent,DsvStoredListComponent,SignatureApiService} from 'signature';
 import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
-
-@Component({
-  selector: 'app-message-dialog',
-  standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule],
-  template: `
-    <h2 mat-dialog-title class="md-title">{{ data?.title || 'Message' }}</h2>
-    <mat-dialog-content class="md-content">
-      <p class="md-message">{{ data?.message || '' }}</p>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end" class="md-actions">
-      <button mat-flat-button color="primary" class="md-btn" (click)="close()">{{ data?.buttonText || 'OK' }}</button>
-    </mat-dialog-actions>
-  `,
-  styles: [
-    `:host {
-      display: block;
-      font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
-    }
-    .md-title {
-      margin: 0;
-      font-size: 1.15rem;
-      font-weight: 800;
-      color: var(--color-text);
-      letter-spacing: 0.01em;
-    }
-    .md-content {
-      padding-top: var(--space-xs);
-    }
-    .md-message {
-      margin: 0;
-      padding: var(--space-md);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--color-surface-3);
-      border-left: 4px solid var(--color-primary);
-      background: var(--bg-info);
-      color: var(--color-text);
-      line-height: 1.45;
-      box-shadow: var(--shadow-sm);
-    }
-    .md-actions {
-      padding-top: var(--space-sm);
-    }
-    .md-btn {
-      min-width: 120px;
-      box-shadow: var(--shadow-sm);
-      transition: transform .16s ease, box-shadow .16s ease;
-    }
-    .md-btn:hover {
-      transform: translateY(-1px) scale(1.02);
-    }
-    .md-btn:focus-visible {
-      outline: 2px solid var(--color-primary-600);
-      outline-offset: 2px;
-    }
-    `
-  ]
-})
-export class MessageDialogComponent {
-  constructor(
-    private dialogRef: MatDialogRef<MessageDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { title?: string; message?: string; buttonText?: string; result?: string }
-  ) {}
-
-  close() {
-    this.dialogRef.close(this.data?.result ?? true);
-  }
-}
-
-
 @Component({
   selector: 'app-inventory-management',
   standalone: true,
@@ -559,8 +490,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     this.dialog.open(MessageDialogComponent, {
       width: '420px',
       data: {
-        title: 'Select Session',
-        message: 'Please select a session before pressing Start.',
+        title: 'Select Check List Type',
+        message: 'Please select a check list type before you Start a check list.',
         buttonText: 'OK'
       }
     });
@@ -617,7 +548,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         width: '420px',
         data: {
           title: 'Start Session',
-          message: 'Select a session and press Start before performing the checklist.',
+          message: 'Select check list type and press Start before performing the checklist.',
           buttonText: 'OK'
         }
       });
@@ -964,12 +895,24 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   }
 
   openReplaceDialog(item: any) {
+    if (!this.activeSession()) {
+      this.dialog.open(MessageDialogComponent, {
+        width: '420px',
+        data: {
+          title: 'Start Session',
+          message: 'Select a session and press Start before performing the checklist.',
+          buttonText: 'OK'
+        }
+      });
+      return;
+    }
+
     const ref = this.dialog.open(ReplaceDialogComponent, { width: '900px', maxWidth: '95vw', data: { item } });
     ref.afterClosed().subscribe((result: any) => {
       if (result && result.expiryDate && result.replacementDate) {
         const ctrlQty = typeof result.controlQuantity === 'number' ? result.controlQuantity : (item.controlQuantity ?? 0);
         // serialize per-item merge
-        this.enqueueItemOp(item.id, () => {
+        const op = this.enqueueItemOp(item.id, () => {
           this.inventory.update(items => items.map(i => i.id === item.id ? {
             ...i,
             expiryDate: result.expiryDate,
@@ -983,6 +926,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           // persist after replacement
           this.saveTodaySnapshot();
         });
+        op.finally(() => this.openNextUncheckedItemAfter(item.id));
         return;
       }
 
@@ -992,7 +936,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         const now = this.formatDate(new Date()) ?? nowIso;
         const checkedNow = formatDateTimeSAST(new Date()) ?? nowIso;
         // Serialize per-item merge so concurrent dialogs/operations don't race
-        this.enqueueItemOp(item.id, () => {
+        const op = this.enqueueItemOp(item.id, () => {
           this.inventory.update(items => items.map(i => {
           if (i.id !== item.id) return i;
           const origItems = Array.isArray(i.items) ? i.items : (Array.isArray(i.variants) ? i.variants : []);
@@ -1119,6 +1063,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           }));
           this.saveTodaySnapshot();
         });
+        op.finally(() => this.openNextUncheckedItemAfter(item.id));
         return;
       }
     });
@@ -1158,6 +1103,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     // persist one more time
     this.saveTodaySnapshot();
     this.activeSession.set(null);
+    this.selectedSession.set(null);
     return finished;
   }
 

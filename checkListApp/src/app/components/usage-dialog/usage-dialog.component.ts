@@ -591,7 +591,7 @@ export class UsageDialogComponent {
         // If nothing available (all depleted), accept used:0 and return
         if (availableIndices.length === 0) {
           const req = this.data.item?.controlQuantity ?? 0;
-          this.closeResult({ used: 0, updatedDates: this.formatEditableDates(), availableCount: 0, notAvailableCount: req });
+          this.closeResult({ used: 0, updatedDates: this.formatEditableDates(), availableCount: 0, notAvailableCount: req, autoAdvance: true });
           return;
         }
       }
@@ -632,7 +632,7 @@ export class UsageDialogComponent {
 
       // Return `used` as the effective available count and include index lists so callers
       // can update per-instance availability / replacement flags in the inventory model.
-      this.closeResult({ used: availableCount, availableCount, notAvailableCount, updatedDates: this.formatEditableDates(), availableIndices: presentAndCheckedIndices, depletedIndices });
+      this.closeResult({ used: availableCount, availableCount, notAvailableCount, updatedDates: this.formatEditableDates(), availableIndices: presentAndCheckedIndices, depletedIndices, autoAdvance: true });
       return;
     }
 
@@ -647,7 +647,7 @@ export class UsageDialogComponent {
 
       // If nothing marked present, allow confirm (used: 0)
       if (presentCount === 0) {
-        this.closeResult({ used: 0, updatedDates: this.formatEditableDates() });
+        this.closeResult({ used: 0, updatedDates: this.formatEditableDates(), autoAdvance: true });
         return;
       }
 
@@ -658,7 +658,7 @@ export class UsageDialogComponent {
       }
 
       // Present items are also Checked — accept and return presentCount
-      this.closeResult({ used: presentCount, updatedDates: this.formatEditableDates() });
+      this.closeResult({ used: presentCount, updatedDates: this.formatEditableDates(), autoAdvance: true });
       return;
     }
 
@@ -671,7 +671,7 @@ export class UsageDialogComponent {
       this.error = `Cannot use more than available (${q}).`;
       return;
     }
-    this.closeResult({ used: this.used });
+    this.closeResult({ used: this.used, autoAdvance: true });
   }
 
   close() {
