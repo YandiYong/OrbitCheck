@@ -5,6 +5,7 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
@@ -13,9 +14,12 @@ import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
 @Component({
   selector: 'app-edit-item-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatDatepickerModule, MatNativeDateModule],
+  imports: [CommonModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatDatepickerModule, MatNativeDateModule],
   template: `
-    <h2 mat-dialog-title>Edit Item</h2>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <h2 mat-dialog-title style="margin:0;">Edit Item</h2>
+      <button mat-icon-button aria-label="Close dialog" style="margin-left:auto;" (click)="close()"><mat-icon>close</mat-icon></button>
+    </div>
     <mat-dialog-content style="max-height:60vh; overflow:auto; padding:8px; box-sizing:border-box;">
       <div style="display:flex; flex-direction:column; gap:12px;">
         <mat-form-field appearance="fill">
@@ -38,10 +42,32 @@ import { parseAnyDate, formatDDMMYYYY } from '../../utils/date-utils';
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
-      <button mat-button (click)="close()">Cancel</button>
+      <button mat-stroked-button (click)="close()" class="eid-cancel-btn">Cancel</button>
       <button mat-flat-button color="primary" (click)="save()">Save</button>
     </mat-dialog-actions>
-  `
+  `,
+  styles: [
+    `.eid-cancel-btn {
+      min-width: 128px;
+      font-weight: 800;
+      border-width: 2px;
+      border-color: var(--color-primary-600);
+      color: var(--color-primary-700);
+      background: var(--bg-pale);
+      box-shadow: var(--shadow-md);
+      animation: eid-pop 1.15s ease-in-out infinite alternate;
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+    .eid-cancel-btn:hover {
+      transform: translateY(-1px) scale(1.04);
+      box-shadow: var(--shadow-md);
+    }
+    @keyframes eid-pop {
+      from { transform: scale(1); }
+      to { transform: scale(1.03); }
+    }
+    `
+  ]
 })
 export class EditItemDialogComponent {
   name: string;

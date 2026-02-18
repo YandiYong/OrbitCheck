@@ -25,6 +25,7 @@ import { StatusColorPipe } from '../../shared/status-color.pipe';
         </ng-container>
         <ng-template #singleTitle>Item Details</ng-template>
       </h2>
+      <button mat-icon-button mat-dialog-close aria-label="Close dialog" style="margin-left:auto;"><mat-icon>close</mat-icon></button>
     </div>
 
     <mat-divider style="margin:12px 0"></mat-divider>
@@ -94,9 +95,31 @@ import { StatusColorPipe } from '../../shared/status-color.pipe';
     </ng-template>
 
     <mat-dialog-actions align="end" style="margin-top:12px;">
-      <button mat-button mat-dialog-close>Close</button>
+      <button mat-stroked-button mat-dialog-close class="dd-close-btn">Close</button>
     </mat-dialog-actions>
-  `
+  `,
+  styles: [
+    `.dd-close-btn {
+      min-width: 128px;
+      font-weight: 800;
+      border-width: 2px;
+      border-color: var(--color-primary-600);
+      color: var(--color-primary-700);
+      background: var(--bg-pale);
+      box-shadow: var(--shadow-md);
+      animation: dd-pop 1.15s ease-in-out infinite alternate;
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+    .dd-close-btn:hover {
+      transform: translateY(-1px) scale(1.04);
+      box-shadow: var(--shadow-md);
+    }
+    @keyframes dd-pop {
+      from { transform: scale(1); }
+      to { transform: scale(1.03); }
+    }
+    `
+  ]
 })
 export class DetailsDialogComponent {
   constructor(@Inject(MAT_DIALOG_DATA) public data: any) {}

@@ -33,6 +33,25 @@ import { parseAnyDate, formatDDMMYYYY, isBeforeToday, isValidFutureDate, validat
       to { transform: translateY(0) scale(1); opacity: 1 }
     }
     .in-dialog-snackbar { animation: popIn .18s cubic-bezier(.2,.9,.3,1); background: var(--color-surface); }
+    .rd-cancel {
+      min-width: 128px;
+      font-weight: 800;
+      border-width: 2px;
+      border-color: var(--color-primary-600);
+      color: var(--color-primary-700);
+      background: var(--bg-pale);
+      box-shadow: var(--shadow-md);
+      animation: rd-pop 1.15s ease-in-out infinite alternate;
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+    .rd-cancel:hover {
+      transform: translateY(-1px) scale(1.04);
+      box-shadow: var(--shadow-md);
+    }
+    @keyframes rd-pop {
+      from { transform: scale(1); }
+      to { transform: scale(1.03); }
+    }
     `
   ],
   template: `
@@ -94,7 +113,7 @@ import { parseAnyDate, formatDDMMYYYY, isBeforeToday, isValidFutureDate, validat
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
-      <button mat-button (click)="onClose()">Cancel</button>
+      <button mat-stroked-button class="rd-cancel" (click)="onClose()">Cancel</button>
       <button mat-flat-button color="primary" (click)="save()">Save</button>
     </mat-dialog-actions>
   `

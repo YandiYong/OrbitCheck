@@ -204,7 +204,24 @@ import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
       from { transform: scale(1); box-shadow: 0 4px 10px rgba(2,6,23,0.12); }
       to   { transform: scale(1.07); box-shadow: 0 8px 18px rgba(2,6,23,0.18); }
     }
-    .ud-cancel { color: var(--color-subtle); }
+    .ud-cancel {
+      min-width: 128px;
+      font-weight: 800;
+      border: 2px solid var(--color-primary-600);
+      color: var(--color-primary-700);
+      background: var(--bg-pale);
+      box-shadow: var(--shadow-md);
+      animation: ud-cancel-pop 1.15s ease-in-out infinite alternate;
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+    .ud-cancel:hover {
+      transform: translateY(-1px) scale(1.04);
+      box-shadow: var(--shadow-md);
+    }
+    @keyframes ud-cancel-pop {
+      from { transform: scale(1); }
+      to { transform: scale(1.03); }
+    }
     .ud-save { background: linear-gradient(90deg,var(--color-primary),var(--color-primary-600)); color:white; }
     ::ng-deep .mat-form-field-appearance-fill .mat-mdc-form-field-flex { background: var(--color-surface); border-radius:var(--radius-sm); }
     `]
