@@ -4,9 +4,44 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
-import { parseAnyDate, parseDDMMYYYY, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
+import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
 import { StatusColorPipe } from '../../shared/status-color.pipe';
-// Use runtime `any` for items to match inventory JSON shape
+import { DisplayItem, Item } from '../../models/item';
+
+type DetailsDialogType = 'expiring' | 'replaced' | 'checklist';
+
+type DialogVariantItem = Omit<Item, 'expiryDate' | 'replacementDate' | 'checkedDate'> & {
+  name?: string;
+  status?: DisplayItem['status'];
+  checked?: boolean;
+  expiryDate?: string | Date | null;
+  replacementDate?: string | Date | null;
+  checkedDate?: string | Date | null;
+};
+
+type DialogDisplayItem = Omit<DisplayItem, 'items'> & {
+  description?: string;
+  category?: string;
+  expiryDate?: string | Date | null;
+  replacementDate?: string | Date | null;
+  checkedDate?: string | Date | null;
+  controlQuantity?: number;
+  usedToday?: number | null;
+  items?: DialogVariantItem[];
+};
+
+type DetailsDialogData =
+  | DialogDisplayItem
+  | {
+      type: DetailsDialogType;
+      items: DialogDisplayItem[];
+    };
+
+type DisplayStatusSource = {
+  status?: DisplayItem['status'];
+  checked?: boolean;
+  expiryDate?: string | Date | null;
+};
 
 @Component({
   selector: 'app-details-dialog',
@@ -122,30 +157,33 @@ import { StatusColorPipe } from '../../shared/status-color.pipe';
   ]
 })
 export class DetailsDialogComponent {
-  constructor(@Inject(MAT_DIALOG_DATA) public data: any) {}
+  constructor(@Inject(MAT_DIALOG_DATA) public data: DetailsDialogData) {}
+
+  private isListData(data: DetailsDialogData): data is { type: DetailsDialogType; items: DialogDisplayItem[] } {
+    return 'items' in data && Array.isArray(data.items);
+  }
 
   // Helpers to safely access union-shaped `data` from the template
-  getItems(): any[] | undefined {
-    const d = this.data as any;
-    return Array.isArray(d?.items) ? d.items as any[] : undefined;
+  getItems(): DialogDisplayItem[] | undefined {
+    return this.isListData(this.data) ? this.data.items : undefined;
   }
 
   hasType(): boolean {
-    return !!(this.data as any)?.type;
+    return this.isListData(this.data) && !!this.data.type;
   }
 
   getType(): string | undefined {
-    return (this.data as any)?.type;
+    return this.isListData(this.data) ? this.data.type : undefined;
   }
 
-  getItem(): any | null {
+  getItem(): DialogDisplayItem | null {
     // If `data` has an `items` array we treat it as the list view
-    if (Array.isArray((this.data as any)?.items)) return null;
-    return this.data as any;
+    if (this.isListData(this.data)) return null;
+    return this.data;
   }
 
   // Expose Array.isArray to the template to satisfy Angular's template type checking
-  isArray(v: any): boolean { return Array.isArray(v); }
+  isArray(v: unknown): v is unknown[] { return Array.isArray(v); }
 
   isExpired(date: string | Date | null | undefined): boolean {
     return isBeforeToday(date);
@@ -157,7 +195,7 @@ export class DetailsDialogComponent {
     return formatDDMMYYYY(parsed);
   }
 
-  getDisplayStatus(item: any | null | undefined): string {
+  getDisplayStatus(item: DisplayStatusSource | null | undefined): string {
     // Check if the item is expired
     if (item?.expiryDate && this.isExpired(item.expiryDate)) {
       return 'expired';
@@ -170,14 +208,14 @@ export class DetailsDialogComponent {
     return item?.status || 'unknown';
   }
 
-  countAvailable(items: any[] = []): number {
+  countAvailable(items: DialogDisplayItem[] = []): number {
     return items.filter(i => {
       const s = this.getDisplayStatus(i);
       return !['depleted', 'expired', 'pending'].includes(s);
     }).length;
   }
 
-  countUnavailable(items: any[] = []): number {
+  countUnavailable(items: DialogDisplayItem[] = []): number {
     return items.filter(i => {
       const s = this.getDisplayStatus(i);
       return ['depleted', 'expired', 'pending'].includes(s);

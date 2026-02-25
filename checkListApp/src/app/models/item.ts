@@ -32,5 +32,37 @@ export interface Session {
   id?: number;
   startedAt: Date;
   endedAt?: Date;
-  sessionType: 'Pre-Check' | 'Post-Check' | 'Resuscitation';
+  sessionType: 'Pre-Shift' | 'Post-Shift' | 'Post-Resus';
+}
+
+export interface CompletedChecklistItem {
+  id: number;
+  name: string;
+  category: string | null;
+  status: 'pending' | 'insufficient' | 'satisfactory' | 'excessive' | 'expired' | 'depleted';
+  checked: boolean;
+  checkedDate: string | null;
+  controlQuantity: number | null;
+  usedToday: number | null;
+  expiryDate: string | null;
+  replacementDate: string | null;
+}
+
+export interface CompletedChecklistRecord {
+  id: string;
+  checklistDate: string;
+  savedAt: string;
+  session: {
+    type: Session['sessionType'];
+    startTime: string | null;
+    endTime: string | null;
+    durationSeconds: number | null;
+  };
+  summary: {
+    totalItems: number;
+    checkedItems: number;
+    depletedItems: number;
+    expiredItems: number;
+  };
+  items: CompletedChecklistItem[];
 }

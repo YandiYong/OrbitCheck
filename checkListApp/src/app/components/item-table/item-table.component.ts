@@ -137,6 +137,22 @@ import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/dat
   `,
     styles: [`
     .full-table { width: 100%; }
+    ::ng-deep .mat-mdc-header-row {
+      position: sticky !important;
+      top: 287px !important;
+      z-index: 9 !important;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1) !important;
+      border-bottom: 3px solid var(--color-primary) !important;
+    }
+    ::ng-deep .mat-mdc-header-cell {
+      font-weight: 700 !important;
+      font-size: 1rem !important;
+      color: #111827 !important;
+      letter-spacing: 0.02em !important;
+      text-transform: uppercase !important;
+      padding-bottom: 8px !important;
+    }
     ::ng-deep .action-menu-panel {
       background-color: var(--color-surface) !important;
       opacity: 1 !important;

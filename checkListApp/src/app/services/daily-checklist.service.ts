@@ -1,10 +1,12 @@
 import { Injectable } from '@angular/core';
 import { formatDateTimeSAST } from '../utils/date-utils';
+import { CompletedChecklistRecord, Session } from '../models/item';
 
 @Injectable({ providedIn: 'root' })
 export class DailyChecklistService {
   private keyPrefix = 'checklist-';
   private sessionsPrefix = 'sessions-';
+  private completedPrefix = 'completed-checklists-';
 
   constructor() {
     // migrate any legacy localStorage keys persisted with dashes (dd-MM-yyyy)
@@ -148,6 +150,76 @@ export class DailyChecklistService {
     const d = new Date();
     d.setDate(d.getDate() - 1);
     return this.getSnapshot(d);
+  }
+
+  saveCompletedChecklist(record: CompletedChecklistRecord, date: Date = new Date()) {
+    const key = this.completedPrefix + this.formatDate(date);
+    let arr: CompletedChecklistRecord[] = [];
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) arr = JSON.parse(raw) as CompletedChecklistRecord[];
+    } catch (e) {
+      arr = [];
+    }
+
+    arr.push(record);
+
+    try {
+      localStorage.setItem(key, JSON.stringify(arr));
+      return true;
+    } catch (e) {
+      console.warn('Failed to save completed checklist', e);
+      return false;
+    }
+  }
+
+  getCompletedChecklists(date: Date = new Date()) {
+    const key = this.completedPrefix + this.formatDate(date);
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return [] as CompletedChecklistRecord[];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as CompletedChecklistRecord[]) : [];
+    } catch (e) {
+      console.warn('Failed to read completed checklists', e);
+      return [] as CompletedChecklistRecord[];
+    }
+  }
+
+  buildCompletedChecklistRecord(sessionType: Session['sessionType'], activeSession: any, items: any[], date: Date = new Date()): CompletedChecklistRecord {
+    const now = new Date();
+    const savedAt = formatDateTimeSAST(now) ?? now.toISOString();
+    const mappedItems = (items ?? []).map((i: any) => ({
+      id: i.id,
+      name: i.name,
+      category: i.category ?? null,
+      status: i.status,
+      checked: i.checked ?? false,
+      checkedDate: i.checkedDate ?? null,
+      controlQuantity: typeof i.controlQuantity === 'number' ? i.controlQuantity : null,
+      usedToday: typeof i.usedToday === 'number' ? i.usedToday : null,
+      expiryDate: i.expiryDate ?? null,
+      replacementDate: i.replacementDate ?? null
+    }));
+
+    return {
+      id: `${sessionType}-${now.toISOString()}`,
+      checklistDate: this.formatDate(date),
+      savedAt,
+      session: {
+        type: sessionType,
+        startTime: activeSession?.startTime ?? null,
+        endTime: activeSession?.endTime ?? null,
+        durationSeconds: typeof activeSession?.durationSeconds === 'number' ? activeSession.durationSeconds : null
+      },
+      summary: {
+        totalItems: mappedItems.length,
+        checkedItems: mappedItems.filter((i: any) => i.checked).length,
+        depletedItems: mappedItems.filter((i: any) => i.status === 'depleted').length,
+        expiredItems: mappedItems.filter((i: any) => i.status === 'expired').length
+      },
+      items: mappedItems
+    };
   }
 
   // Session management: start / finish / query

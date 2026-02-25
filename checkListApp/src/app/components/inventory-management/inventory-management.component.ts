@@ -88,8 +88,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
         <div *ngIf="showingCached()" style="margin-top:var(--space-sm); font-size:0.9rem; color:#4b5563;">Showing cached snapshot for today.</div>
       </mat-card>
     </div>
-  <div style="display:flex; gap:var(--space-lg); padding:var(--space-md);">
-    <mat-sidenav-container style="height:calc(100vh - 64px); width:100%;">
+    <mat-sidenav-container style="height:calc(100vh); width:100%;">
       <mat-sidenav mode="side" opened style="width:260px; padding:var(--space-md); background:var(--color-surface); box-shadow:0 6px 18px rgba(16,24,40,0.06);">
         <app-sidebar
           [categories]="categories()"
@@ -101,48 +100,53 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
         </app-sidebar>
       </mat-sidenav>
 
-      <mat-sidenav-content style="padding:var(--space-sm) var(--space-lg);">
-        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-md); margin-bottom:var(--space-md);">
-          <app-stats-card [count]="expiringSoonCount()" title="Expiring in the next 3 months" subtitle="Due for ordering" [subtitleColor]="'#f97316'" borderColor="#f97316" (clicked)="openDetailsForType('expiring')"></app-stats-card>
-          <app-stats-card [count]="replacedThisMonthCount()" title="Replacements" subtitle="Replaced items" [subtitleColor]="'#0284c7'" borderColor="#0284c7" (clicked)="openDetailsForType('replaced')"></app-stats-card>
-          <app-stats-card [count]="getChecklistStats().checked" title="Checklists Completed" borderColor="#7c3aed" (clicked)="openDetailsForType('checklist')">
-            <div *ngIf="getChecklistStats().checked > 0 && getChecklistStats().unavailable === 0" style="display:flex; gap:6px; align-items:center; color:#16a34a; margin-top:6px;">
-              <mat-icon>check_circle</mat-icon>
-              <span>Checked</span>
-            </div>
-          </app-stats-card>
-        </div>
-          
-        
-        <mat-card style="width:320px; margin-left:1300px; display:inline-block; vertical-align:top;">
-          <mat-form-field appearance="fill" style="width:100%; background:var(--color-surface); border-radius:var(--radius-sm); padding:var(--space-xs) var(--space-sm); box-shadow:0 1px 2px rgba(0,0,0,0.04);">
-            <mat-label>Select check list type</mat-label>
-            <mat-select [value]="selectedSession()" (selectionChange)="selectedSession.set($event.value)">
-              <mat-option *ngFor="let s of sessionTypes" [value]="s.sessionType">{{s.label}}</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-            <button mat-flat-button (click)="startSession()" *ngIf="!activeSession()" style="background:var(--color-success); color:white;">Start</button>
-            <button mat-flat-button (click)="finishSession()" *ngIf="activeSession()" style="background:var(--color-danger); color:white;">Finish</button>
-            <div *ngIf="activeSession()" style="margin-left:var(--space-sm); font-weight:700;">{{ getSessionElapsed() }}</div>
+      <mat-sidenav-content style="padding:0 var(--space-lg) var(--space-sm) var(--space-lg);">
+        <div style="position:sticky; top:0; background:var(--color-bg); z-index:10; padding-top:var(--space-sm); padding-bottom:var(--space-md);">
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-md); margin-bottom:var(--space-md);">
+            <app-stats-card [count]="expiringSoonCount()" title="Expiring in the next 3 months" subtitle="Due for ordering" [subtitleColor]="'#f97316'" borderColor="#f97316" (clicked)="openDetailsForType('expiring')"></app-stats-card>
+            <app-stats-card [count]="replacedThisMonthCount()" title="Replacements" subtitle="Replaced items" [subtitleColor]="'#0284c7'" borderColor="#0284c7" (clicked)="openDetailsForType('replaced')"></app-stats-card>
+            <app-stats-card [count]="getChecklistStats().checked" title="Checklists Completed" borderColor="#7c3aed" (clicked)="openDetailsForType('checklist')">
+              <div *ngIf="getChecklistStats().checked > 0 && getChecklistStats().unavailable === 0" style="display:flex; gap:6px; align-items:center; color:#16a34a; margin-top:6px;">
+                <mat-icon>check_circle</mat-icon>
+                <span>Checked</span>
+              </div>
+            </app-stats-card>
           </div>
-        </mat-card>
+
+          <div class="form-group">
+            <mat-form-field appearance="fill" style="background:var(--color-surface); border-radius:var(--radius-sm); padding:var(--space-xs) var(--space-sm); box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+              <mat-label>Select check list type</mat-label>
+              <mat-select [value]="selectedSession()" (selectionChange)="selectedSession.set($event.value)">
+                <mat-option *ngFor="let s of sessionTypes" [value]="s.sessionType">{{s.label}}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div>
+              <button mat-flat-button (click)="startSession()" *ngIf="!activeSession()" style="background:var(--color-success); color:white;">Start</button>
+              <button mat-flat-button (click)="exportCompletedChecklistJson()" [disabled]="activeSession()" [style.background]="activeSession() ? '#9ca3af' : '#0284c7'" [style.color]="activeSession() ? '#6b7280' : 'white'" [style.box-shadow]="activeSession() ? 'none' : '0 2px 4px rgba(2,132,199,0.2)'" style="margin-left:var(--space-sm); cursor:pointer;">Export JSON</button>
+              <button mat-flat-button (click)="finishSession()" *ngIf="activeSession()" style="background:var(--color-danger); margin-left:var(--space-sm); color:white;">Finish</button>
+            </div>
+          </div>
+        </div>
+        <div style="position:sticky; top:200px; z-index:8; background:var(--bg-info); padding:var(--space-md); box-shadow:0 2px 8px rgba(0,0,0,0.06); margin-bottom:0; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h2 style="font-size:2rem; font-weight:700; margin:0; line-height:1.1; color:#111827;">Check List</h2>
+            <p style="margin:6px 0 0 8px; color:#374151; font-size:0.9rem;">Total: {{filteredInventory().length}} • Shown: {{dateFilteredItems().length}}</p>
+          </div>
+          <div *ngIf="activeSession()" style="font-weight:700; font-size:1.5rem; color:#111827; display:flex; align-items:center; gap:8px;">
+            <mat-icon style="font-size:1.8rem; width:1.8rem; height:1.8rem;">schedule</mat-icon>
+            <span>{{ getSessionElapsed() }}</span>
+          </div>
+        </div>
         
         <mat-card style="background:var(--color-surface); box-shadow:0 8px 30px rgba(2,6,23,0.04);">
-          <mat-card-header style="background:var(--bg-info);">
-            <mat-card-title style="font-size:2rem; font-weight:700;">Check List</mat-card-title>
-            <mat-card-subtitle style="margin-left:8px; color:#374151; font-size:0.9rem;">Total: {{filteredInventory().length}} • Shown: {{dateFilteredItems().length}}</mat-card-subtitle>
-          </mat-card-header>
-
-          <mat-card-content>
+          <mat-card-content style="padding:0;">
             <app-item-table [items]="dateFilteredItems()" [categories]="categories()" (viewItem)="openDetailsForItem($event)" (editItem)="openEditDialog($event)" (replaceItem)="openReplaceDialog($event)" (toggleCheckbox)="handleCheckboxClick($event)" (toggleSubitem)="handleSubitemToggle($event)"></app-item-table>
-          
-            
           </mat-card-content>
         </mat-card>
       </mat-sidenav-content>
     </mat-sidenav-container>
-  </div>
+
   `,
   styles: [`
     :host { display:block; height:100%; font-family: 'Roboto', sans-serif; background:#f3f6f9; }
@@ -171,9 +175,9 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   private timerId: any = null;
   private completionDialogOpen = false;
   sessionTypes: Array<{ sessionType: Session['sessionType']; label: Session['sessionType'] }> = [
-    { sessionType: 'Pre-Check', label: 'Pre-Check' },
-    { sessionType: 'Post-Check', label: 'Post-Check' },
-    { sessionType: 'Resuscitation', label: 'Resuscitation' }
+    { sessionType: 'Pre-Shift', label: 'Pre-Shift' },
+    { sessionType: 'Post-Shift', label: 'Post-Shift' },
+    { sessionType: 'Post-Resus', label: 'Post-Resus' }
   ];
   selectedSession = signal<Session['sessionType'] | null>(null);
   activeSession = signal<any | null>(null);
@@ -1097,16 +1101,59 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   }
 
   finishSession() {
-    const snapshotEnd = this.inventory().map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null, usedToday: i.usedToday ?? null }));
+    const currentItems = this.inventory();
+    const snapshotEnd = currentItems.map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null, usedToday: i.usedToday ?? null }));
     const active = this.activeSession();
     const sessionType = active?.type ?? this.selectedSession();
     if (!sessionType) return null;
     const finished = this.dailyService.finishSession(sessionType, snapshotEnd);
+    const completedSession = finished ?? active;
+    if (completedSession) {
+      const completionRecord = this.dailyService.buildCompletedChecklistRecord(sessionType, completedSession, currentItems, new Date());
+      this.dailyService.saveCompletedChecklist(completionRecord, new Date());
+    }
     // persist one more time
     this.saveTodaySnapshot();
     this.activeSession.set(null);
     this.selectedSession.set(null);
     return finished;
+  }
+
+  exportCompletedChecklistJson() {
+    const records = this.dailyService.getCompletedChecklists(new Date());
+    if (!records.length) {
+      this.dialog.open(MessageDialogComponent, {
+        width: '420px',
+        data: {
+          title: 'No Data',
+          message: 'No completed checklist found for today.',
+          buttonText: 'OK'
+        }
+      });
+      return;
+    }
+
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const fileName = `completed-checklists-${today}.json`;
+      const payload = JSON.stringify(records, null, 2);
+      const blob = new Blob([payload], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      this.dialog.open(MessageDialogComponent, {
+        width: '420px',
+        data: {
+          title: 'Export Failed',
+          message: 'Failed to export completed checklist JSON.',
+          buttonText: 'OK'
+        }
+      });
+    }
   }
 
   getSessionElapsed(): string {
