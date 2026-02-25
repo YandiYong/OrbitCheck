@@ -19,26 +19,18 @@ import { generateInstances } from '../../utils/instance-utils';
 import { InstanceDetailDialogComponent } from '../instance-detail-dialog/instance-detail-dialog.component';
 import { parseAnyDate, formatDDMMYYYY, isBeforeToday, validateEditableDates } from '../../utils/date-utils';
 import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
+import { HelpPopoverComponent } from '../../shared/help-popover.component';
 
 @Component({
   selector: 'app-usage-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatTableModule, MatCheckboxModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatNativeDateModule, FormsModule],
+  imports: [CommonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatTableModule, MatCheckboxModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatNativeDateModule, FormsModule, HelpPopoverComponent],
   template: `
     <div class="ud-header">
       <h2 mat-dialog-title class="ud-title">Required Item(s): {{ data.item.controlQuantity }}</h2>
+      <app-help-popover *ngIf="step === 'count'" [helpText]="'Count the number of items in the trolley, enter the count below \\'Item Count\\', and click \\'Next\\'.'"></app-help-popover>
+      <app-help-popover *ngIf="step === 'review'" [helpText]="'Check and mark the item(s) listed if they correspond with items in the trolley.'"></app-help-popover>
       <button mat-icon-button aria-label="Close dialog" class="ud-close-btn" (click)="close()"><mat-icon>close</mat-icon></button>
-    </div>
-    <div class="ud-help-box" role="region" aria-label="Usage instructions">
-      <div class="ud-help-header" role="button" tabindex="0" (click)="toggleHelp()" (keydown.enter)="toggleHelp()" (keydown.space)="$event.preventDefault(); toggleHelp()" [attr.aria-expanded]="showHelp">
-        <mat-icon class="ud-tip-icon" matTooltip="Quick tips">help_outline</mat-icon>
-        <div style="font-weight:700;">How to use</div>
-        <mat-icon class="ud-help-chevron" [class.open]="showHelp">expand_more</mat-icon>
-      </div>
-      <div *ngIf="showHelp" class="ud-help-list">
-        <div *ngIf="step === 'count'">Count the number of items in the trolley, enter the count below "Item Count", and click "Next".</div>
-        <div *ngIf="step === 'review'">Check and mark the item(s) listed if they correspond with items in the trolley.</div>
-      </div>
     </div>
     <mat-dialog-content class="ud-content">
       <div class="ud-stack">
@@ -123,25 +115,18 @@ import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
   `
   ,
   styles: [
-  `:host { font-family: 'Roboto', 'Helvetica', Arial, sans-serif; color: var(--color-text); }
-    .ud-content { max-height: 60vh; overflow:auto; padding:var(--space-lg) var(--space-md); box-sizing:border-box; }
-    .ud-stack { display:flex; flex-direction:column; gap:var(--space-md); }
-    .ud-section { display:flex; flex-direction:column; gap:var(--space-md); }
-    .ud-help-box { background:var(--bg-pale); border:1px solid rgba(230,242,248,0.9); padding:var(--space-sm); border-radius:var(--radius-md); margin:8px 0 12px 0; }
-    .ud-tip-icon { color: var(--color-primary); }
-    .ud-help-list { margin-top:6px; color:#334155; font-size:0.95rem; }
-    .ud-help-header { display:flex; align-items:center; gap:8px; cursor:pointer; }
-    .ud-help-chevron { margin-left:auto; transition:transform .18s ease; }
-    .ud-help-chevron.open { transform:rotate(180deg); }
-    .ud-header { display:flex; align-items:center; gap:8px; }
+  `:host { font-family: 'Roboto', 'Helvetica', Arial, sans-serif; color: var(--color-text); display: block; overflow-x: hidden; width: 100%; }
+    .ud-content { max-height: 60vh; overflow-y:auto; overflow-x:hidden; padding:var(--space-lg) var(--space-md); box-sizing:border-box; width: 100%; }
+    .ud-stack { display:flex; flex-direction:column; gap:var(--space-md); width: 100%; box-sizing: border-box; }
+    .ud-section { display:flex; flex-direction:column; gap:var(--space-md); width: 100%; box-sizing: border-box; }
+    .ud-header { display:flex; align-items:center; gap:8px; position:relative; }
     .ud-close-btn { margin-left:auto; color: var(--color-subtle); }
     .ud-title { font-size:1.125rem; font-weight:700; margin:0 0 var(--space-sm) 0; color:#0f172a; }
     .ud-item-title { font-weight:800; color:white; font-size:1.25rem; background:linear-gradient(135deg, #0284c7 0%, #0c4a6e 100%); padding:16px 20px; border-radius:10px; margin-bottom:16px; box-shadow:0 4px 12px rgba(2,132,199,0.2); display:flex; align-items:center; gap:12px; }
-    .ud-item-title::before { content:'✓'; font-weight:900; font-size:1.4rem; color:#86efac; display:flex; align-items:center; }
     .ud-item-title.small { font-size:1rem; color: var(--color-subtle); background:transparent; padding:0; margin-bottom:12px; box-shadow:none; }
     .ud-field { width:160px; }
     .ud-field-pop { width:140px; }
-    .ud-qty-control { display:flex; align-items:center; gap:var(--space-sm); }
+    .ud-qty-control { display:flex; align-items:center; gap:var(--space-sm); justify-content:center; }
     .ud-qty-btn {
       width:40px;
       height:40px;
@@ -225,6 +210,12 @@ import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
     }
     .ud-save { background: linear-gradient(90deg,var(--color-primary),var(--color-primary-600)); color:white; }
     ::ng-deep .mat-form-field-appearance-fill .mat-mdc-form-field-flex { background: var(--color-surface); border-radius:var(--radius-sm); }
+    ::ng-deep .mat-mdc-dialog-content { overflow-x: hidden !important; }
+    ::ng-deep .mdc-dialog__content { overflow-x: hidden !important; }
+    ::ng-deep .mat-mdc-dialog-surface { overflow-x: hidden !important; }
+    ::ng-deep .mdc-dialog__surface { overflow-x: hidden !important; }
+    ::ng-deep .mat-mdc-dialog-inner-container { overflow-x: hidden !important; }
+    ::ng-deep .mdc-dialog__container { overflow-x: hidden !important; }
     `]
 })
 /**
@@ -252,8 +243,6 @@ export class UsageDialogComponent {
   selectedIndices: Set<number> = new Set();
   // Editable expiry dates keyed by instance index (store Date objects for datepicker)
   editableDates: Record<number, Date | null> = {};
-  // Help panel toggle
-  showHelp: boolean = true;
   // Current dialog step
   step: 'count' | 'review' = 'count';
   // If entered count differs from required, an explanatory message
@@ -306,11 +295,6 @@ export class UsageDialogComponent {
   decrementUsed() {
     this.used = Math.max(0, (Number(this.used) || 0) - 1);
     this.error = null;
-  }
-
-
-  toggleHelp() {
-    this.showHelp = !this.showHelp;
   }
 
   back() {
