@@ -136,8 +136,9 @@ import { GlobalSnackbarService } from '../../shared/global-snackbar.service';
     .ud-header { display:flex; align-items:center; gap:8px; }
     .ud-close-btn { margin-left:auto; color: var(--color-subtle); }
     .ud-title { font-size:1.125rem; font-weight:700; margin:0 0 var(--space-sm) 0; color:#0f172a; }
-    .ud-item-title { font-weight:700; color: var(--color-text); font-size:1rem; }
-    .ud-item-title.small { font-size:0.95rem; color: var(--color-subtle); }
+    .ud-item-title { font-weight:800; color:white; font-size:1.25rem; background:linear-gradient(135deg, #0284c7 0%, #0c4a6e 100%); padding:16px 20px; border-radius:10px; margin-bottom:16px; box-shadow:0 4px 12px rgba(2,132,199,0.2); display:flex; align-items:center; gap:12px; }
+    .ud-item-title::before { content:'✓'; font-weight:900; font-size:1.4rem; color:#86efac; display:flex; align-items:center; }
+    .ud-item-title.small { font-size:1rem; color: var(--color-subtle); background:transparent; padding:0; margin-bottom:12px; box-shadow:none; }
     .ud-field { width:160px; }
     .ud-field-pop { width:140px; }
     .ud-qty-control { display:flex; align-items:center; gap:var(--space-sm); }

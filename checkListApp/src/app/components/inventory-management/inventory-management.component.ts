@@ -15,6 +15,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { FormsModule } from '@angular/forms';
 import { Session } from '../../models/item';
 import { parseAnyDate, formatDDMMYYYY, formatDateTimeSAST } from '../../utils/date-utils';
@@ -53,6 +54,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     MatDatepickerModule,
     MatNativeDateModule,
     MatDividerModule,
+    MatProgressBarModule,
     ReplaceDialogComponent,
     DetailsDialogComponent,
     UsageDialogComponent,
@@ -137,6 +139,20 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
             <mat-icon style="font-size:1.8rem; width:1.8rem; height:1.8rem;">schedule</mat-icon>
             <span>{{ getSessionElapsed() }}</span>
           </div>
+        </div>
+        
+        <div *ngIf="activeSession()" style="margin-bottom:var(--space-md); background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding:var(--space-md); border-radius:12px; box-shadow:0 4px 12px rgba(2,132,199,0.15); border-left:4px solid #0284c7;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <span style="font-weight:700; color:#0284c7; font-size:1.1rem; display:flex; align-items:center; gap:6px;">
+              <mat-icon style="font-size:1.3rem; width:1.3rem; height:1.3rem;">trending_up</mat-icon>
+              Checklist Progress
+            </span>
+            <span style="font-weight:800; color:#0284c7; font-size:1.2rem; background:white; padding:4px 12px; border-radius:20px; box-shadow:0 2px 4px rgba(2,132,199,0.2);">{{ getProgressPercentage() }}%</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-weight:600; color:#0c4a6e; font-size:0.9rem;">{{ getChecklistStats().checked }}/{{ filteredInventory().length }} items checked</span>
+          </div>
+          <mat-progress-bar mode="determinate" [value]="getProgressPercentage()" style="height:14px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);"></mat-progress-bar>
         </div>
         
         <mat-card style="background:var(--color-surface); box-shadow:0 8px 30px rgba(2,6,23,0.04);">
@@ -475,6 +491,12 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     const checked = inv.filter(i => i.checked).length;
     const unavailable = inv.filter(i => i.checked && i.status === 'depleted').length;
     return { checked, unavailable, total: inv.length };
+  });
+
+  getProgressPercentage = computed(() => {
+    const stats = this.getChecklistStats();
+    if (stats.total === 0) return 0;
+    return Math.round((stats.checked / stats.total) * 100);
   });
 
   filteredInventory = computed(() => {
