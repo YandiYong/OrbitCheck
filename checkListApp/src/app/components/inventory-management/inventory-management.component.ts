@@ -437,16 +437,21 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     };
 
     const map = new Map<string, { name: string; icon: string; count: number }>();
+    let totalRequired = 0;
+    
     for (const item of inv) {
       const cat = item.category ?? 'Uncategorized';
+      const required = item.controlQuantity ?? 1;
+      
       if (!map.has(cat)) {
         map.set(cat, { name: cat, icon: iconMap[cat] ?? 'inventory_2', count: 0 });
       }
-      map.get(cat)!.count++;
+      map.get(cat)!.count += required;
+      totalRequired += required;
     }
 
     return [
-      { name: 'All Items', icon: 'inventory_2', count: inv.length },
+      { name: 'All Items', icon: 'inventory_2', count: totalRequired },
       ...Array.from(map.values())
     ];
   });

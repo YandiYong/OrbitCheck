@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { formatDateTimeSAST } from '../utils/date-utils';
+import { formatDateTimeSAST, parseAnyDate, isBeforeToday } from '../utils/date-utils';
 import { CompletedChecklistRecord, Session } from '../models/item';
 
 @Injectable({ providedIn: 'root' })
@@ -189,18 +189,39 @@ export class DailyChecklistService {
   buildCompletedChecklistRecord(sessionType: Session['sessionType'], activeSession: any, items: any[], date: Date = new Date()): CompletedChecklistRecord {
     const now = new Date();
     const savedAt = formatDateTimeSAST(now) ?? now.toISOString();
-    const mappedItems = (items ?? []).map((i: any) => ({
-      id: i.id,
-      name: i.name,
-      category: i.category ?? null,
-      status: i.status,
-      checked: i.checked ?? false,
-      checkedDate: i.checkedDate ?? null,
-      controlQuantity: typeof i.controlQuantity === 'number' ? i.controlQuantity : null,
-      usedToday: typeof i.usedToday === 'number' ? i.usedToday : null,
-      expiryDate: i.expiryDate ?? null,
-      replacementDate: i.replacementDate ?? null
-    }));
+    
+    // Helper to determine if an item is expired
+    const isExpired = (expiryDate: any): boolean => {
+      if (!expiryDate) return false;
+      const parsed = parseAnyDate(expiryDate);
+      return parsed ? isBeforeToday(parsed) : false;
+    };
+    
+    const mappedItems = (items ?? []).map((i: any) => {
+      // If item is expired, override status to 'expired'
+      let itemStatus = i.status;
+      if (isExpired(i.expiryDate)) {
+        itemStatus = 'expired';
+      }
+      
+      return {
+        id: i.id,
+        name: i.name,
+        category: i.category ?? null,
+        status: itemStatus,
+        checked: i.checked ?? false,
+        checkedDate: i.checkedDate ?? null,
+        controlQuantity: typeof i.controlQuantity === 'number' ? i.controlQuantity : null,
+        usedToday: typeof i.usedToday === 'number' ? i.usedToday : null,
+        expiryDate: i.expiryDate ?? null,
+        replacementDate: i.replacementDate ?? null
+      };
+    });
+
+    const totalRequired = (items ?? []).reduce((sum: number, i: any) => {
+      const required = typeof i.controlQuantity === 'number' ? i.controlQuantity : 1;
+      return sum + required;
+    }, 0);
 
     return {
       id: `${sessionType}-${now.toISOString()}`,
@@ -213,7 +234,7 @@ export class DailyChecklistService {
         durationSeconds: typeof activeSession?.durationSeconds === 'number' ? activeSession.durationSeconds : null
       },
       summary: {
-        totalItems: mappedItems.length,
+        totalItems: totalRequired,
         checkedItems: mappedItems.filter((i: any) => i.checked).length,
         depletedItems: mappedItems.filter((i: any) => i.status === 'depleted').length,
         expiredItems: mappedItems.filter((i: any) => i.status === 'expired').length
