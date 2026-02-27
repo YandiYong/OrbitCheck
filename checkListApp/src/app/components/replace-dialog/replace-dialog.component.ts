@@ -171,9 +171,6 @@ export class ReplaceDialogComponent {
     return !!this.expiryDateObj && isValidFutureDate(this.expiryDateObj);
   }
 
-  // Use shared helper to parse dates (accepts Date or dd/MM/yyyy)
-  private parseToDate(s: any): Date | null { return parseAnyDate(s); }
-
   public formatDate(date: Date | null): string | null { return formatDDMMYYYY(date); }
 
   onVariantExpiryChanged(index: number, event: any) {

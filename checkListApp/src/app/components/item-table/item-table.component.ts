@@ -46,9 +46,6 @@ import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/dat
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:var(--space-lg);">Item</th>
         <td mat-cell *matCellDef="let row" style="padding:var(--space-lg);">
           <div style="display:flex; gap:12px; align-items:center;">
-            <div style="width:56px; height:56px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--bg-pale);">
-              <mat-icon>{{ row.categoryIcon }}</mat-icon>
-            </div>
             <div>
               <div style="font-weight:700; color:var(--color-text);">{{row.item.name}}</div>
               <div style="color:var(--color-muted); font-size:0.9rem;">
@@ -65,7 +62,7 @@ import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/dat
               </div>
               <div *ngIf="row.item.syringes" style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
                 <div *ngFor="let s of row.item.syringes; let i = index" style="display:flex; align-items:center; gap:8px;">
-                  <div (click)="row.expired ? null : toggleSubitem.emit({ itemId: row.item.id, index: i })" [style.cursor]="row.expired ? 'not-allowed' : 'pointer'" style="width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; border:2px solid var(--color-border);" [ngStyle]="{ background: s.checked ? (s.available ? 'var(--bg-success)' : 'var(--bg-danger)') : 'white', borderColor: s.checked ? (s.available ? 'var(--color-success)' : 'var(--color-danger)') : 'var(--color-border)' }">
+                  <div (click)="row.expired ? null : toggleSubitem.emit({ itemId: row.item.id, category: row.item.category, index: i })" [style.cursor]="row.expired ? 'not-allowed' : 'pointer'" style="width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; border:2px solid var(--color-border);" [ngStyle]="{ background: s.checked ? (s.available ? 'var(--bg-success)' : 'var(--bg-danger)') : 'white', borderColor: s.checked ? (s.available ? 'var(--color-success)' : 'var(--color-danger)') : 'var(--color-border)' }">
                     <mat-icon *ngIf="s.checked">{{ s.available ? 'check' : 'close' }}</mat-icon>
                   </div>
                   <div style="font-size:0.9rem; color:var(--color-subtle);">{{s.size}} — <span style="color:var(--color-muted);">{{ s.available ? 'Satisfactory' : 'Depleted' }}</span></div>
@@ -177,7 +174,7 @@ export class ItemTableComponent {
   @Output() editItem = new EventEmitter<any>();
   @Output() replaceItem = new EventEmitter<any>();
   @Output() toggleCheckbox = new EventEmitter<any>();
-  @Output() toggleSubitem = new EventEmitter<{ itemId: number; index: number }>();
+  @Output() toggleSubitem = new EventEmitter<{ itemId: number; category: string; index: number }>();
 
   // Precomputed lightweight view-model for each row to avoid expensive template calls
   computedItems: Array<{ item: any; expired: boolean; checkboxStyle: any; expiredCount: number; expiryDisplay: string; categoryIcon: string }> = [];

@@ -609,7 +609,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
               const nowIso = new Date().toISOString();
               const now = this.formatDate(new Date()) ?? nowIso;
               this.inventory.update(items => items.map(i => {
-                if (i.id !== item.id) return i;
+                if (i.id !== item.id || i.category !== item.category) return i;
                 const required = i.controlQuantity ?? 0;
                 let origItems = Array.isArray((i as any).items) ? (i as any).items : (Array.isArray((i as any).variants) ? (i as any).variants : undefined);
                 if (Array.isArray(origItems) && origItems.length) {
@@ -676,7 +676,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         // enqueue the merge so it doesn't race with other per-item ops
         const op = this.enqueueItemOp(item.id, () => {
           this.inventory.update(items => items.map(i => {
-            if (i.id !== item.id) return i;
+            if (i.id !== item.id || i.category !== item.category) return i;
             const required = i.controlQuantity ?? 0;
             const nowIso = new Date().toISOString();
             const history = (i.usageHistory ?? []).concat([{ date: nowIso, used: (availableCount ?? 0) }]);
@@ -789,7 +789,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         const currentItemId = item.id;
         let used = res.used;
         this.inventory.update(items => items.map(i => {
-          if (i.id !== item.id) return i;
+          if (i.id !== item.id || i.category !== item.category) return i;
           // Do not change quantity, only usedToday and status
           const required = i.controlQuantity ?? 0;
           used = Math.max(0, used); // ensure non-negative
@@ -822,7 +822,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
     // Otherwise fallback to previous toggle behavior (no quantity prompt)
     this.inventory.update(items => items.map(i => {
-      if (i.id !== item.id) return i;
+      if (i.id !== item.id || i.category !== item.category) return i;
         if (!i.checked) {
         // mark checked and record timestamp (history)
         // if item has subitems, mark them checked too, but enforce `usedToday` (availableCount) if set
@@ -861,7 +861,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     this.saveTodaySnapshot();
   }
 
-  public handleSubitemToggle(event: { itemId: number; index: number }) {
+  public handleSubitemToggle(event: { itemId: number; category: string; index: number }) {
     if (!this.activeSession()) {
       this.dialog.open(MessageDialogComponent, {
         width: '420px',
@@ -875,7 +875,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     }
 
     this.inventory.update(items => items.map(i => {
-      if (i.id !== event.itemId) return i;
+      if (i.id !== event.itemId || i.category !== event.category) return i;
       // prevent toggling subitems if the parent item is expired
       if (this.isExpired(i.expiryDate)) return i;
       const copy: any = { ...i };
@@ -941,7 +941,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         const ctrlQty = typeof result.controlQuantity === 'number' ? result.controlQuantity : (item.controlQuantity ?? 0);
         // serialize per-item merge
         const op = this.enqueueItemOp(item.id, () => {
-          this.inventory.update(items => items.map(i => i.id === item.id ? {
+          this.inventory.update(items => items.map(i => (i.id === item.id && i.category === item.category) ? {
             ...i,
             expiryDate: result.expiryDate,
             replacementDate: result.replacementDate,
@@ -966,7 +966,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         // Serialize per-item merge so concurrent dialogs/operations don't race
         const op = this.enqueueItemOp(item.id, () => {
           this.inventory.update(items => items.map(i => {
-          if (i.id !== item.id) return i;
+          if (i.id !== item.id || i.category !== item.category) return i;
           const origItems = Array.isArray(i.items) ? i.items : (Array.isArray(i.variants) ? i.variants : []);
           const returned = result.items;
           // merge returned expiry into existing variant list where possible
@@ -1306,7 +1306,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     ref.afterClosed().subscribe((res: any) => {
       if (!res) return;
       const { name, expiryDate, controlQuantity } = res;
-      this.inventory.update(items => items.map(i => i.id === item.id ? {
+      this.inventory.update(items => items.map(i => (i.id === item.id && i.category === item.category) ? {
         ...i,
         name: typeof name === 'string' ? name : i.name,
         expiryDate: expiryDate ?? i.expiryDate,

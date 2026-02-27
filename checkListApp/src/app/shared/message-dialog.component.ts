@@ -34,6 +34,7 @@ export interface MessageDialogData {
     `:host {
       display: block;
       font-family: 'Roboto', 'Helvetica', Arial, sans-serif;
+      overflow-x: hidden;
     }
     .md-title {
       margin: 0;
@@ -53,6 +54,7 @@ export interface MessageDialogData {
     }
     .md-content {
       padding-top: var(--space-xs);
+      overflow-x: hidden;
     }
     .md-message {
       margin: 0;
@@ -96,6 +98,16 @@ export interface MessageDialogData {
     @keyframes md-pop {
       from { transform: scale(1); }
       to { transform: scale(1.03); }
+    }
+    ::ng-deep .mat-mdc-dialog-container,
+    ::ng-deep .mat-mdc-dialog-inner-container,
+    ::ng-deep .mat-mdc-dialog-surface,
+    ::ng-deep .mdc-dialog__container,
+    ::ng-deep .mdc-dialog__surface {
+      overflow-x: hidden !important;
+    }
+    ::ng-deep .mat-mdc-dialog-content {
+      overflow-x: hidden !important;
     }
     `
   ]
