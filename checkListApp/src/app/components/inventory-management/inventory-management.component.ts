@@ -16,6 +16,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+// import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { FormsModule } from '@angular/forms';
 import { Session } from '../../models/item';
 import { parseAnyDate, formatDDMMYYYY, formatDateTimeSAST } from '../../utils/date-utils';
@@ -55,6 +56,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     MatNativeDateModule,
     MatDividerModule,
     MatProgressBarModule,
+    // MatPaginatorModule,
     ReplaceDialogComponent,
     DetailsDialogComponent,
     UsageDialogComponent,
@@ -91,7 +93,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
       </mat-card>
     </div>
     <mat-sidenav-container style="height:calc(100vh); width:100%;">
-      <mat-sidenav mode="side" opened style="width:260px; padding:var(--space-md); background:var(--color-surface); box-shadow:0 6px 18px rgba(16,24,40,0.06);">
+      <mat-sidenav mode="side" opened style="width:400px; padding:var(--space-md); background:var(--color-surface); box-shadow:0 6px 18px rgba(16,24,40,0.06);">
         <app-sidebar
           [categories]="categories()"
           [selectedCategory]="selectedCategory()"
@@ -130,14 +132,23 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
             </div>
           </div>
         </div>
+        <!-- Pagination Container (Commented Out)
+        <div style="display:flex; justify-content:flex-end; background:linear-gradient(135deg,#ffffff 0%,#f8fafc 50%,#eff6ff 100%); padding:16px 24px; border-radius:16px; width:fit-content; margin-left:auto; margin-right:var(--space-lg); box-shadow:0 8px 24px rgba(99,102,241,0.15), 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8); border:1px solid rgba(99,102,241,0.2); gap:16px; transition:all 0.3s ease;">
+          <span style="font-weight:700; background:linear-gradient(135deg,var(--color-primary) 0%,var(--color-primary-600) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; font-size:1rem; display:flex; align-items:center; gap:8px; letter-spacing:0.5px;">
+            <mat-icon style="font-size:1.2rem; width:1.2rem; height:1.2rem; color:var(--color-primary); filter:drop-shadow(0 2px 4px rgba(99,102,241,0.3));">navigation</mat-icon>
+            Navigate
+          </span>
+          <mat-paginator [length]="dateFilteredItems().length" [pageSize]="pageSize()" [pageSizeOptions]="[25, 50, 100]" (page)="onPageChange($event)" showFirstLastButtons aria-label="Select page" style="background:transparent; flex:1;"></mat-paginator>
+        </div>
+        -->
         <div style="position:sticky; top:200px; z-index:8; background:var(--bg-info); padding:var(--space-md); box-shadow:0 2px 8px rgba(0,0,0,0.06); margin-bottom:0; display:flex; justify-content:space-between; align-items:center;">
           <div>
             <h2 style="font-size:2rem; font-weight:700; margin:0; line-height:1.1; color:#111827;">Check List</h2>
-            <p style="margin:6px 0 0 8px; color:#374151; font-size:0.9rem;">Total: {{filteredInventory().length}} • Shown: {{dateFilteredItems().length}}</p>
+            <p style="margin:6px 0 0 8px; color:#374151; font-size:0.9rem;">Total: {{totalFilteredQuantity()}} • Shown: {{dateFilteredItems().length}}</p>
           </div>
           <div *ngIf="activeSession()" style="font-weight:700; font-size:1.5rem; color:#111827; display:flex; align-items:center; gap:8px;">
-            <mat-icon style="font-size:1.8rem; width:1.8rem; height:1.8rem;">schedule</mat-icon>
-            <span>{{ getSessionElapsed() }}</span>
+              <mat-icon style="font-size:1.8rem; width:1.8rem; height:1.8rem;">schedule</mat-icon>
+              <span>{{ getSessionElapsed() }}</span>
           </div>
         </div>
         
@@ -231,6 +242,25 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
       return d >= start && d <= end;
     });
   });
+
+  // Pagination properties (Commented Out)
+  // pageSize = signal(25);
+  // pageIndex = signal(0);
+
+  // Calculate total controlQuantity for filtered inventory (like sidebar chips)
+  totalFilteredQuantity = computed(() => {
+    return this.filteredInventory().reduce((sum, item) => {
+      return sum + (item.controlQuantity ?? 1);
+    }, 0);
+  });
+
+  // Paginated items computed from dateFilteredItems (Commented Out)
+  // paginatedItems = computed(() => {
+  //   const allItems = this.dateFilteredItems();
+  //   const startIndex = this.pageIndex() * this.pageSize();
+  //   const endIndex = startIndex + this.pageSize();
+  //   return allItems.slice(startIndex, endIndex);
+  // });
 
   // initially empty; populated from API in ngOnInit
   // Use `any[]` here so the runtime objects can match the JSON shape
@@ -511,7 +541,14 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
   toggleCategory(name: string) {
     this.selectedCategory.set(name);
+    // this.pageIndex.set(0); // Reset to first page when category changes
   }
+
+  // Pagination Event Handler (Commented Out)
+  // onPageChange(event: PageEvent) {
+  //   this.pageSize.set(event.pageSize);
+  //   this.pageIndex.set(event.pageIndex);
+  // }
 
   private parseDate(dateString: string | Date | null): Date | null { return parseAnyDate(dateString); }
 

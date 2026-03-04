@@ -18,11 +18,14 @@ import { parseAnyDate, isBeforeToday } from '../../utils/date-utils';
   standalone: true,
   imports: [CommonModule, MatListModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatDividerModule, FormsModule, MatCardModule, MatDialogModule],
   template: `
-    <mat-card style="margin-bottom:var(--space-md); padding:var(--space-md);">
+    <mat-card style="margin-bottom:var(--space-md); padding:var(--space-md); background:linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 10%, var(--color-surface) 100%); border-top:4px solid var(--color-primary); box-shadow:0 4px 12px rgba(99,102,241,0.15);">
       <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
-        <div>
-          <div style="font-weight:700;">Check List Summary</div>
-          <div style="font-size:0.85rem; color:var(--color-muted);">Quick overview of the Checklist</div>
+        <div style="flex:1;">
+          <div style="font-weight:800; font-size:1.25rem; color:var(--color-primary); display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+            <mat-icon style="font-size:1.5rem; width:1.5rem; height:1.5rem;">checklist</mat-icon>
+            Checklist Summary
+          </div>
+          <div style="font-size:0.9rem; color:#64748b; font-weight:500;">Status overview & key items</div>
         </div>
       </div>
 

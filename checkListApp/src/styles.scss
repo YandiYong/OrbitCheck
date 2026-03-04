@@ -78,3 +78,173 @@ button[mat-dialog-close].mat-icon-button mat-icon {
   width: 20rem;
 }
 
+/* Custom Paginator Styling */
+::ng-deep .mat-mdc-paginator {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+::ng-deep .mat-mdc-paginator-container {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  padding: 0 !important;
+  min-height: 48px !important;
+  gap: 16px !important;
+}
+
+/* Paginator Range Label */
+::ng-deep .mat-mdc-paginator-range-label {
+  font-weight: 700 !important;
+  color: #475569 !important;
+  font-size: 1rem !important;
+  margin: 0 16px !important;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  letter-spacing: 0.3px !important;
+  text-shadow: 0 2px 4px rgba(99,102,241,0.1) !important;
+}
+
+/* Page Size Label */
+::ng-deep .mat-mdc-paginator-page-size-label {
+  font-weight: 700 !important;
+  background: linear-gradient(135deg, #475569 0%, #1e293b 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-size: 0.95rem !important;
+  margin: 0 8px 0 0 !important;
+  letter-spacing: 0.3px !important;
+}
+
+/* Page Size Select Styling */
+::ng-deep .mat-mdc-paginator-page-size .mat-mdc-form-field {
+  margin-top: 0 !important;
+}
+
+::ng-deep .mat-mdc-paginator-page-size .mdc-text-field--outlined {
+  background: linear-gradient(135deg, #ffffff 0%, #fafbff 100%) !important;
+  border-radius: 10px !important;
+  transition: all 0.3s ease !important;
+}
+
+::ng-deep .mat-mdc-paginator-page-size .mdc-text-field--outlined:hover {
+  box-shadow: 0 4px 12px rgba(99,102,241,0.15) !important;
+  transform: translateY(-1px) !important;
+}
+
+::ng-deep .mat-mdc-paginator-page-size .mdc-text-field--outlined .mdc-notched-outline__leading,
+::ng-deep .mat-mdc-paginator-page-size .mdc-text-field--outlined .mdc-notched-outline__notch,
+::ng-deep .mat-mdc-paginator-page-size .mdc-text-field--outlined .mdc-notched-outline__trailing {
+  border-color: var(--color-primary) !important;
+  border-width: 2px !important;
+  transition: all 0.3s ease !important;
+}
+
+::ng-deep .mat-mdc-paginator-page-size .mdc-text-field--outlined:hover .mdc-notched-outline__leading,
+::ng-deep .mat-mdc-paginator-page-size .mdc-text-field--outlined:hover .mdc-notched-outline__notch,
+::ng-deep .mat-mdc-paginator-page-size .mdc-text-field--outlined:hover .mdc-notched-outline__trailing {
+  border-color: var(--color-primary-600) !important;
+}
+
+::ng-deep .mat-mdc-select-value {
+  color: var(--color-primary) !important;
+  font-weight: 700 !important;
+  font-size: 1rem !important;
+  letter-spacing: 0.5px !important;
+}
+
+::ng-deep .mat-mdc-select-arrow {
+  color: var(--color-primary) !important;
+}
+
+/* Navigation Buttons */
+::ng-deep .mat-mdc-paginator-navigation-first,
+::ng-deep .mat-mdc-paginator-navigation-previous,
+::ng-deep .mat-mdc-paginator-navigation-next,
+::ng-deep .mat-mdc-paginator-navigation-last {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-600) 100%) !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  margin: 0 3px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+::ng-deep .mat-mdc-paginator-navigation-first::before,
+::ng-deep .mat-mdc-paginator-navigation-previous::before,
+::ng-deep .mat-mdc-paginator-navigation-next::before,
+::ng-deep .mat-mdc-paginator-navigation-last::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent) !important;
+  transition: left 0.5s ease !important;
+}
+
+::ng-deep .mat-mdc-paginator-navigation-first:hover:not([disabled]),
+::ng-deep .mat-mdc-paginator-navigation-previous:hover:not([disabled]),
+::ng-deep .mat-mdc-paginator-navigation-next:hover:not([disabled]),
+::ng-deep .mat-mdc-paginator-navigation-last:hover:not([disabled]) {
+  transform: translateY(-3px) scale(1.05) !important;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4), 0 4px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+::ng-deep .mat-mdc-paginator-navigation-first:hover:not([disabled])::before,
+::ng-deep .mat-mdc-paginator-navigation-previous:hover:not([disabled])::before,
+::ng-deep .mat-mdc-paginator-navigation-next:hover:not([disabled])::before,
+::ng-deep .mat-mdc-paginator-navigation-last:hover:not([disabled])::before {
+  left: 100% !important;
+}
+
+::ng-deep .mat-mdc-paginator-navigation-first:active:not([disabled]),
+::ng-deep .mat-mdc-paginator-navigation-previous:active:not([disabled]),
+::ng-deep .mat-mdc-paginator-navigation-next:active:not([disabled]),
+::ng-deep .mat-mdc-paginator-navigation-last:active:not([disabled]) {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+::ng-deep .mat-mdc-paginator-navigation-first[disabled],
+::ng-deep .mat-mdc-paginator-navigation-previous[disabled],
+::ng-deep .mat-mdc-paginator-navigation-next[disabled],
+::ng-deep .mat-mdc-paginator-navigation-last[disabled] {
+  background: #e5e7eb !important;
+  box-shadow: none !important;
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+::ng-deep .mat-mdc-paginator-icon {
+  fill: white !important;
+  width: 22px !important;
+  height: 22px !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2)) !important;
+  transition: all 0.3s ease !important;
+}
+
+::ng-deep .mat-mdc-paginator-navigation-first:hover:not([disabled]) .mat-mdc-paginator-icon,
+::ng-deep .mat-mdc-paginator-navigation-previous:hover:not([disabled]) .mat-mdc-paginator-icon,
+::ng-deep .mat-mdc-paginator-navigation-next:hover:not([disabled]) .mat-mdc-paginator-icon,
+::ng-deep .mat-mdc-paginator-navigation-last:hover:not([disabled]) .mat-mdc-paginator-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3)) !important;
+}
+
+::ng-deep .mat-mdc-paginator-navigation-first[disabled] .mat-mdc-paginator-icon,
+::ng-deep .mat-mdc-paginator-navigation-previous[disabled] .mat-mdc-paginator-icon,
+::ng-deep .mat-mdc-paginator-navigation-next[disabled] .mat-mdc-paginator-icon,
+::ng-deep .mat-mdc-paginator-navigation-last[disabled] .mat-mdc-paginator-icon {
+  fill: #9ca3af !important;
+}
