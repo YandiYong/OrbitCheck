@@ -48,6 +48,14 @@ export interface CompletedChecklistItem {
   replacementDate: string | null;
 }
 
+export interface CompletedChecklistSignature {
+  user: string;
+  signedFor: string;
+  purpose: string;
+  date: string;
+  image: string;
+}
+
 export interface CompletedChecklistRecord {
   id: string;
   checklistDate: string;
@@ -64,5 +72,6 @@ export interface CompletedChecklistRecord {
     depletedItems: number;
     expiredItems: number;
   };
+  signature?: CompletedChecklistSignature;
   items: CompletedChecklistItem[];
 }

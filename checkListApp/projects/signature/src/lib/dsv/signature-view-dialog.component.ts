@@ -36,10 +36,38 @@ export interface SignatureDialogData {
   `,
   styles: [
     `
-      .content { display: grid; grid-template-columns: 1fr; gap: var(--space-md); }
-      .image-wrap { display: flex; align-items: center; justify-content: center; background: var(--bg-pale); border: 1px solid var(--color-border); padding: var(--space-md); }
-      .image-wrap img { max-width: 100%; height: auto; }
+      :host { display: block; max-width: 100%; overflow-x: hidden; }
+      .content {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: var(--space-md, 12px);
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden !important;
+        box-sizing: border-box;
+      }
+      .mat-mdc-dialog-content.content {
+        overflow-x: hidden !important;
+        padding-bottom: 12px;
+      }
+      .content > * { min-width: 0; }
+      .image-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        max-width: 100%;
+        background: var(--bg-pale, #f8fafc);
+        border: 1px solid var(--color-border, #e5e7eb);
+        padding: var(--space-md, 12px);
+        box-sizing: border-box;
+      }
+      .image-wrap img { display: block; width: 100%; max-width: 100%; height: auto; }
       .meta p { margin: 0; color: var(--color-muted); }
+      .mat-mdc-dialog-actions {
+        overflow-x: hidden;
+        margin: 0;
+      }
       .sd-close-btn {
         min-width: 128px;
         font-weight: 800;
@@ -48,18 +76,12 @@ export interface SignatureDialogData {
         color: var(--color-primary-700);
         background: var(--bg-pale);
         box-shadow: var(--shadow-md);
-        animation: sd-pop 1.15s ease-in-out infinite alternate;
-        transition: transform .16s ease, box-shadow .16s ease;
+        transition: box-shadow .16s ease;
       }
       .sd-close-btn:hover {
-        transform: translateY(-1px) scale(1.04);
         box-shadow: var(--shadow-md);
       }
-      @keyframes sd-pop {
-        from { transform: scale(1); }
-        to { transform: scale(1.03); }
-      }
-      @media (min-width: 640px) { .content { grid-template-columns: 1fr 1fr; } }
+      @media (min-width: 640px) { .content { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
     `,
   ],
 })

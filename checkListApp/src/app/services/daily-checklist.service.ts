@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { formatDateTimeSAST, parseAnyDate, isBeforeToday } from '../utils/date-utils';
-import { CompletedChecklistRecord, Session } from '../models/item';
+import { CompletedChecklistRecord, CompletedChecklistSignature, Session } from '../models/item';
 
 @Injectable({ providedIn: 'root' })
 export class DailyChecklistService {
@@ -186,7 +186,13 @@ export class DailyChecklistService {
     }
   }
 
-  buildCompletedChecklistRecord(sessionType: Session['sessionType'], activeSession: any, items: any[], date: Date = new Date()): CompletedChecklistRecord {
+  buildCompletedChecklistRecord(
+    sessionType: Session['sessionType'],
+    activeSession: any,
+    items: any[],
+    date: Date = new Date(),
+    signature?: CompletedChecklistSignature
+  ): CompletedChecklistRecord {
     const now = new Date();
     const savedAt = formatDateTimeSAST(now) ?? now.toISOString();
     
@@ -239,6 +245,7 @@ export class DailyChecklistService {
         depletedItems: mappedItems.filter((i: any) => i.status === 'depleted').length,
         expiredItems: mappedItems.filter((i: any) => i.status === 'expired').length
       },
+      ...(signature ? { signature } : {}),
       items: mappedItems
     };
   }

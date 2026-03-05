@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, Optional } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DsvHeaderComponent } from './dsv-header.component';
 import { DsvSignatureFormComponent } from './dsv-signature-form.component';
@@ -6,12 +6,18 @@ import { DsvStoredListComponent } from './dsv-stored-list.component';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'dsv-page',
   standalone: true,
-  imports: [CommonModule, DsvHeaderComponent, DsvSignatureFormComponent, DsvStoredListComponent,HttpClientModule,FormsModule],
+  imports: [CommonModule, DsvHeaderComponent, DsvSignatureFormComponent, DsvStoredListComponent, HttpClientModule, FormsModule, MatButtonModule, MatIconModule],
   template: `
+    <button class="dialog-close" mat-icon-button type="button" aria-label="Close" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+
     <dsv-header />
 
     <div class="container">
@@ -29,6 +35,7 @@ import { FormsModule } from '@angular/forms';
   styles: [
     `
       .container { max-width: 1120px; margin: 0 auto; padding: 24px; }
+      .dialog-close { position: absolute; top: 12px; right: 12px; z-index: 20; }
       .page-title h1 { font-size: 28px; margin-bottom: 8px; }
       .page-title p { color: #666; }
       .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -38,7 +45,13 @@ import { FormsModule } from '@angular/forms';
 })
 export class DsvPageComponent {
 
-  constructor( private dialogRef: MatDialogRef<DsvPageComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: any) { }
+  constructor(
+    @Optional() private dialogRef: MatDialogRef<DsvPageComponent> | null,
+    @Optional() @Inject(MAT_DIALOG_DATA) public data: any
+  ) {}
+
+  close() {
+    this.dialogRef?.close();
+  }
 
 }

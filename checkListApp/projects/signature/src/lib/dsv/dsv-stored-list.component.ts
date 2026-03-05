@@ -14,7 +14,7 @@ import { DsvStore } from './dsv.store';
   template: `
     <mat-card class="panel">
       <div class="panel-head">
-        <h2 class="panel-title">Stored Signatures</h2>
+        <h2 class="panel-title">Signatures</h2>
        
       </div>
       <div class="list" *ngIf="store.signatures().length > 0; else empty">

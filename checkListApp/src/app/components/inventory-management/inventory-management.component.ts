@@ -18,7 +18,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 // import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { FormsModule } from '@angular/forms';
-import { Session } from '../../models/item';
+import { CompletedChecklistSignature, Session } from '../../models/item';
 import { parseAnyDate, formatDDMMYYYY, formatDateTimeSAST } from '../../utils/date-utils';
 import { DailyChecklistService } from '../../services/daily-checklist.service';
 import { InventoryApiService } from '../../services/inventory-api.service';
@@ -33,7 +33,7 @@ import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.co
 import { HttpClientModule } from '@angular/common/http';
 import { MessageDialogComponent } from '../../shared/message-dialog.component';
 
-import{DsvSignatureFormComponent,DsvStoredListComponent,SignatureApiService} from 'signature';
+import { DsvPageComponent, DsvStore, SignatureApiService } from 'signature';
 import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
 @Component({
   selector: 'app-inventory-management',
@@ -69,7 +69,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     SignatureWrapperModule,
     HttpClientModule,
   ],
-  providers: [SignatureApiService, InventoryApiService],
+  providers: [InventoryApiService],
   template: `
   <mat-toolbar color="primary" style="display:flex; justify-content:space-between;">
     <div style="display:flex; align-items:center; gap:8px;">
@@ -201,6 +201,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
 export class InventoryManagementComponent implements OnInit, OnDestroy {
   private timerId: any = null;
   private completionDialogOpen = false;
+  private signatureStore = inject(DsvStore);
   sessionTypes: Array<{ sessionType: Session['sessionType']; label: Session['sessionType'] }> = [
     { sessionType: 'Pre-Shift', label: 'Pre-Shift' },
     { sessionType: 'Post-Shift', label: 'Post-Shift' },
@@ -480,9 +481,12 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
       totalRequired += required;
     }
 
+    // Sort categories alphabetically by name
+    const sortedCategories = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
     return [
       { name: 'All Items', icon: 'inventory_2', count: totalRequired },
-      ...Array.from(map.values())
+      ...sortedCategories
     ];
   });
 
@@ -1164,16 +1168,71 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     this.activeSession.set(session);
   }
 
-  finishSession() {
+  private requireCompletionSignature(sessionType: Session['sessionType']): Promise<CompletedChecklistSignature | null> {
+    const beforeCount = this.signatureStore.signatures().length;
+    this.signatureStore.setPurpose(`Checklist Completion (${sessionType})`);
+    if (!this.signatureStore.signatureFor()) {
+      this.signatureStore.setSignatureFor('Healthcare Provider');
+    }
+
+    const ref = this.dialog.open(DsvPageComponent, {
+      width: '1100px',
+      maxWidth: '95vw',
+      data: {
+        source: 'checklist-completion',
+        sessionType,
+      },
+    });
+
+    return new Promise((resolve) => {
+      ref.afterClosed().subscribe(() => {
+        const afterCount = this.signatureStore.signatures().length;
+        if (afterCount <= beforeCount) {
+          resolve(null);
+          return;
+        }
+
+        const latest = this.signatureStore.signatures()[0];
+        if (!latest) {
+          resolve(null);
+          return;
+        }
+
+        resolve({
+          user: latest.user,
+          signedFor: latest.signedFor,
+          purpose: latest.purpose,
+          date: latest.date,
+          image: latest.image,
+        });
+      });
+    });
+  }
+
+  async finishSession() {
     const currentItems = this.inventory();
     const snapshotEnd = currentItems.map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null, usedToday: i.usedToday ?? null }));
     const active = this.activeSession();
-    const sessionType = active?.type ?? this.selectedSession();
+    const sessionType = (active?.type ?? this.selectedSession()) as Session['sessionType'] | null;
     if (!sessionType) return null;
+
+    const signature = await this.requireCompletionSignature(sessionType);
+    if (!signature) {
+      this.dialog.open(MessageDialogComponent, {
+        width: '420px',
+        data: {
+          title: 'Signature Required',
+          message: 'Please provide a signature before finishing the checklist.',
+          buttonText: 'OK'
+        }
+      });
+      return null;
+    }
+
     const finished = this.dailyService.finishSession(sessionType, snapshotEnd);
     const completedSession = finished ?? active;
     if (completedSession) {
-      const completionRecord = this.dailyService.buildCompletedChecklistRecord(sessionType, completedSession, currentItems, new Date());
+      const completionRecord = this.dailyService.buildCompletedChecklistRecord(sessionType, completedSession, currentItems, new Date(), signature);
       this.dailyService.saveCompletedChecklist(completionRecord, new Date());
     }
     // persist one more time

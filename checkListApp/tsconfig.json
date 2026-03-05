@@ -13,7 +13,12 @@
     "experimentalDecorators": true,
     "paths": {
       "signature": [
+        "./projects/signature/src/public-api.ts",
         "./dist/signature"
+      ],
+      "signature/*": [
+        "./projects/signature/src/*",
+        "./dist/signature/*"
       ]
     },
     "importHelpers": true,

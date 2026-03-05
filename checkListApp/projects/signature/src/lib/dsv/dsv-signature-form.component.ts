@@ -88,14 +88,14 @@ import { SignatureApiService } from './signature-api.service';
   `,
   styles: [
     `
-      .panel { padding: var(--space-lg); }
-      .panel-title { font-weight: 700; margin-bottom: var(--space-sm); }
-      .canvas-block label { display: block; margin-bottom: var(--space-xs); color: var(--color-muted); }
-      .controls { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
-      .canvas { width: 100%; border: 2px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); touch-action: none; cursor: crosshair; }
-      .form-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-md); margin: var(--space-lg) 0; }
+      .panel { padding: var(--space-lg, 16px); }
+      .panel-title { font-weight: 700; margin-bottom: var(--space-sm, 8px); }
+      .canvas-block label { display: block; margin-bottom: var(--space-xs, 6px); color: var(--color-muted, #6b7280); }
+      .controls { display: flex; align-items: center; gap: var(--space-sm, 8px); margin-bottom: var(--space-sm, 8px); }
+      .canvas { width: 100%; border: 2px solid var(--color-border, #e5e7eb); border-radius: var(--radius-md, 8px); background: var(--color-surface, #ffffff); touch-action: none; cursor: crosshair; }
+      .form-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-md, 12px); margin: var(--space-lg, 16px) 0; }
       @media (min-width: 768px) { .form-grid { grid-template-columns: 1fr 1fr; } }
-      .actions { display: flex; gap: var(--space-md); }
+      .actions { display: flex; gap: var(--space-md, 12px); }
     `,
   ],
 })
@@ -117,6 +117,7 @@ export class DsvSignatureFormComponent implements AfterViewInit, OnDestroy {
   // Stroke model and history for undo support
   private strokes: { color: string; width: number; points: Array<{ x: number; y: number }> }[] = [];
   private currentStroke?: { color: string; width: number; points: Array<{ x: number; y: number }> };
+  private activePointerId: number | null = null;
 
   // Keep canvas pen settings synced with store values; defined in a field initializer
   // to ensure effect is created in Angular's injection context.
@@ -167,40 +168,67 @@ export class DsvSignatureFormComponent implements AfterViewInit, OnDestroy {
     this.redrawAll();
   }
 
+  private getClampedPoint(ev: PointerEvent) {
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const rawX = ev.clientX - rect.left;
+    const rawY = ev.clientY - rect.top;
+    const maxX = Math.max(0, rect.width - 1);
+    const maxY = Math.max(0, rect.height - 1);
+    return {
+      x: Math.min(maxX, Math.max(0, rawX)),
+      y: Math.min(maxY, Math.max(0, rawY)),
+    };
+  }
+
+  private clearCanvasPixels() {
+    const canvas = this.canvasRef.nativeElement;
+    this.ctx.save();
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.ctx.restore();
+  }
+
   start(ev: PointerEvent) {
     // Begin path and capture pointer to track drawing within the canvas
     const canvas = this.canvasRef.nativeElement;
-    const rect = canvas.getBoundingClientRect();
+    const p = this.getClampedPoint(ev);
     this.isDrawing.set(true);
     this.ctx.beginPath();
-    this.ctx.moveTo(ev.clientX - rect.left, ev.clientY - rect.top);
+    this.ctx.moveTo(p.x, p.y);
     canvas.setPointerCapture(ev.pointerId);
+    this.activePointerId = ev.pointerId;
     // Mark that the canvas has content once drawing starts
     this.hasSignature.set(true);
     // Start a new stroke with current pen settings
     this.currentStroke = {
       color: this.store.penColor(),
       width: this.store.lineWidth(),
-      points: [{ x: ev.clientX - rect.left, y: ev.clientY - rect.top }],
+      points: [{ x: p.x, y: p.y }],
     };
   }
 
   move(ev: PointerEvent) {
     // Extend path while drawing and render the stroke
     if (!this.isDrawing()) return;
-    const canvas = this.canvasRef.nativeElement;
-    const rect = canvas.getBoundingClientRect();
-    const x = ev.clientX - rect.left;
-    const y = ev.clientY - rect.top;
-    this.ctx.lineTo(x, y);
+    if (this.activePointerId !== null && ev.pointerId !== this.activePointerId) return;
+    const p = this.getClampedPoint(ev);
+    this.ctx.lineTo(p.x, p.y);
     this.ctx.stroke();
     // Record the point for undo/redo redraws
-    this.currentStroke?.points.push({ x, y });
+    this.currentStroke?.points.push({ x: p.x, y: p.y });
   }
 
   stop() {
     // End current drawing gesture
     this.isDrawing.set(false);
+    const canvas = this.canvasRef.nativeElement;
+    try {
+      if (this.activePointerId !== null && canvas.hasPointerCapture(this.activePointerId)) {
+        canvas.releasePointerCapture(this.activePointerId);
+      }
+    } catch {}
+    this.activePointerId = null;
     if (this.currentStroke) {
       this.strokes.push(this.currentStroke);
       this.currentStroke = undefined;
@@ -209,8 +237,9 @@ export class DsvSignatureFormComponent implements AfterViewInit, OnDestroy {
 
   clear() {
     // Clear the canvas and reset signature presence flag
-    const canvas = this.canvasRef.nativeElement;
-    this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.isDrawing.set(false);
+    this.currentStroke = undefined;
+    this.clearCanvasPixels();
     this.hasSignature.set(false);
     this.strokes = [];
   }
@@ -270,8 +299,7 @@ export class DsvSignatureFormComponent implements AfterViewInit, OnDestroy {
 
   // Redraw all recorded strokes onto the canvas
   private redrawAll() {
-    const canvas = this.canvasRef.nativeElement;
-    this.ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.clearCanvasPixels();
     for (const s of this.strokes) {
       this.ctx.strokeStyle = s.color;
       this.ctx.lineWidth = s.width;
