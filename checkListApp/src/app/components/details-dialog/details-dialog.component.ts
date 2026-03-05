@@ -1,14 +1,15 @@
 import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
-import { MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { parseAnyDate, formatDDMMYYYY, isBeforeToday } from '../../utils/date-utils';
 import { StatusColorPipe } from '../../shared/status-color.pipe';
 import { DisplayItem, Item } from '../../models/item';
 
-type DetailsDialogType = 'expiring' | 'replaced' | 'checklist';
+type DetailsDialogType = 'expiring' | 'expired' | 'depleted' | 'insufficient' | 'replaced' | 'checklist';
 
 type DialogVariantItem = Omit<Item, 'expiryDate' | 'replacementDate' | 'checkedDate'> & {
   name?: string;
@@ -46,13 +47,16 @@ type DisplayStatusSource = {
 @Component({
   selector: 'app-details-dialog',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatDialogModule, MatDividerModule, MatIconModule, StatusColorPipe],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatDialogModule, MatDividerModule, MatIconModule, StatusColorPipe],
   template: `
     <div style="display:flex; justify-content:space-between; align-items:center; padding:12px;">
       <h2 style="margin:0">
         <ng-container *ngIf="hasType(); else singleTitle">
           <ng-container [ngSwitch]="getType()">
             <span *ngSwitchCase="'expiring'">Items Expiring Soon</span>
+            <span *ngSwitchCase="'expired'">Expired Items</span>
+            <span *ngSwitchCase="'depleted'">Depleted Items</span>
+            <span *ngSwitchCase="'insufficient'">Insufficient Items</span>
             <span *ngSwitchCase="'replaced'">Replaced This Month</span>
             <span *ngSwitchCase="'checklist'">Daily Checklist</span>
             <span *ngSwitchDefault>Details</span>
@@ -94,6 +98,9 @@ type DisplayStatusSource = {
                   <div style="margin-left:auto; font-weight:900;" [style.color]="item | statusColor">{{ getDisplayStatus(item) }}</div>
                 </div>
               </ng-template>
+              <div *ngIf="showReplaceButton(item)" style="display:flex; justify-content:flex-end; margin-top:8px;">
+                <button mat-flat-button class="replace-btn" (click)="requestReplace(item)">Replace</button>
+              </div>
             </mat-card-content>
           </mat-card>
       </div>
@@ -153,11 +160,20 @@ type DisplayStatusSource = {
       from { transform: scale(1); }
       to { transform: scale(1.03); }
     }
+    .replace-btn {
+      background: linear-gradient(90deg, var(--color-primary), var(--color-primary-600));
+      color: #fff;
+      box-shadow: var(--card-shadow);
+      font-weight: 700;
+    }
     `
   ]
 })
 export class DetailsDialogComponent {
-  constructor(@Inject(MAT_DIALOG_DATA) public data: DetailsDialogData) {}
+  constructor(
+    @Inject(MAT_DIALOG_DATA) public data: DetailsDialogData,
+    private dialogRef: MatDialogRef<DetailsDialogComponent>
+  ) {}
 
   private isListData(data: DetailsDialogData): data is { type: DetailsDialogType; items: DialogDisplayItem[] } {
     return 'items' in data && Array.isArray(data.items);
@@ -220,6 +236,20 @@ export class DetailsDialogComponent {
       const s = this.getDisplayStatus(i);
       return ['depleted', 'expired', 'pending'].includes(s);
     }).length;
+  }
+
+  requestReplace(item: DialogDisplayItem) {
+    this.dialogRef.close({ action: 'replace', item });
+  }
+
+  showReplaceButton(item: DialogDisplayItem): boolean {
+    const t = this.getType();
+    if (t === 'expired' || t === 'depleted' || t === 'insufficient') return true;
+    if (t === 'checklist') {
+      const s = this.getDisplayStatus(item);
+      return s === 'expired' || s === 'depleted';
+    }
+    return false;
   }
 
   

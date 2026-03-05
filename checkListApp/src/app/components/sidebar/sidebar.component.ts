@@ -107,7 +107,10 @@ export class SidebarComponent {
       }
       openExpired() {
         if (!this.expiredItems.length) return;
-        this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'expired', items: this.expiredItems } });
+        const ref = this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'expired', items: this.expiredItems } });
+        ref.afterClosed().subscribe((result: any) => {
+          if (result?.action === 'replace' && result?.item) this.replaceItem.emit(result.item);
+        });
       }
     @Input() previousUnavailable: Array<{ id: number; name: string; status: string }> = [];
 
@@ -130,7 +133,10 @@ export class SidebarComponent {
 
     openDepleted() {
       if (!this.depletedItems.length) return;
-      this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'depleted', items: this.depletedItems } });
+      const ref = this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'depleted', items: this.depletedItems } });
+      ref.afterClosed().subscribe((result: any) => {
+        if (result?.action === 'replace' && result?.item) this.replaceItem.emit(result.item);
+      });
     }
     openExcessive() {
       if (!this.excessiveItems.length) return;
@@ -138,10 +144,14 @@ export class SidebarComponent {
     }
     openInsufficient() {
       if (!this.insufficientItems.length) return;
-      this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'insufficient', items: this.insufficientItems } });
+      const ref = this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'insufficient', items: this.insufficientItems } });
+      ref.afterClosed().subscribe((result: any) => {
+        if (result?.action === 'replace' && result?.item) this.replaceItem.emit(result.item);
+      });
     }
   @Input() expiredNeedsReplacement: any[] = [];
   @Output() selectCategory = new EventEmitter<string>();
+  @Output() replaceItem = new EventEmitter<any>();
 
   private dialog = inject(MatDialog);
 
@@ -160,6 +170,9 @@ export class SidebarComponent {
 
   openExpiredNeedsReplacement() {
     if (!this.expiredNeedsReplacement || this.expiredNeedsReplacement.length === 0) return;
-    this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'expiring', items: this.expiredNeedsReplacement } });
+    const ref = this.dialog.open(DetailsDialogComponent, { width: '780px', data: { type: 'expiring', items: this.expiredNeedsReplacement } });
+    ref.afterClosed().subscribe((result: any) => {
+      if (result?.action === 'replace' && result?.item) this.replaceItem.emit(result.item);
+    });
   }
 }

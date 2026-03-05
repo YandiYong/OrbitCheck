@@ -100,6 +100,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
           [previousUnavailable]="previousDayUnavailableChecked()"
           [expiredNeedsReplacement]="expiredNeedsReplacement()"
           [items]="filteredInventory()"
+          (replaceItem)="openReplaceDialog($event)"
           (selectCategory)="toggleCategory($event)">
         </app-sidebar>
       </mat-sidenav>
@@ -1357,9 +1358,15 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     });
 
     if (items.length) {
-      this.dialog.open(DetailsDialogComponent, {
+      const ref = this.dialog.open(DetailsDialogComponent, {
         width: '780px',
         data: { type: 'expiring', items }
+      });
+
+      ref.afterClosed().subscribe((result: any) => {
+        if (result?.action === 'replace' && result?.item) {
+          this.openReplaceDialog(result.item);
+        }
       });
     }
 
@@ -1389,9 +1396,15 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     const items = this.filteredInventory().filter(i => i.checked);
 
     if (items.length) {
-      this.dialog.open(DetailsDialogComponent, {
+      const ref = this.dialog.open(DetailsDialogComponent, {
         width: '780px',
         data: { type: 'checklist', items }
+      });
+
+      ref.afterClosed().subscribe((result: any) => {
+        if (result?.action === 'replace' && result?.item) {
+          this.openReplaceDialog(result.item);
+        }
       });
     }
   }
