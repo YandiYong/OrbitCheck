@@ -120,7 +120,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
 
           <div class="form-group">
             <mat-form-field appearance="fill" style="background:var(--color-surface); border-radius:var(--radius-sm); padding:var(--space-xs) var(--space-sm); box-shadow:0 1px 2px rgba(0,0,0,0.04);">
-              <mat-label>Select check list type</mat-label>
+              <mat-label>Select check</mat-label>
               <mat-select [value]="selectedSession()" (selectionChange)="selectedSession.set($event.value)">
                 <mat-option *ngFor="let s of sessionTypes" [value]="s.sessionType">{{s.label}}</mat-option>
               </mat-select>
@@ -197,6 +197,16 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
       color: #111827;
       line-height: 1.1;
     }
+    ::ng-deep .checklist-summary-pop .mat-mdc-dialog-surface,
+    ::ng-deep .checklist-summary-pop .mdc-dialog__surface {
+      border: 2px solid #0284c7 !important;
+      box-shadow: 0 16px 40px rgba(2, 132, 199, 0.35) !important;
+      animation: checklistSummaryPop 220ms ease-out;
+    }
+    @keyframes checklistSummaryPop {
+      0% { transform: scale(0.92); opacity: 0.4; }
+      100% { transform: scale(1); opacity: 1; }
+    }
   `]
 })
 export class InventoryManagementComponent implements OnInit, OnDestroy {
@@ -206,7 +216,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   sessionTypes: Array<{ sessionType: Session['sessionType']; label: Session['sessionType'] }> = [
     { sessionType: 'Pre-Shift', label: 'Pre-Shift' },
     { sessionType: 'Post-Shift', label: 'Post-Shift' },
-    { sessionType: 'Post-Resus', label: 'Post-Resus' }
+    { sessionType: 'Post-Resus', label: 'Post-Resus' },
+    { sessionType: 'Audit', label: 'Audit' }
   ];
   selectedSession = signal<Session['sessionType'] | null>(null);
   activeSession = signal<any | null>(null);
@@ -214,7 +225,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   loading = signal<boolean>(false);
   apiError = signal<string | null>(null);
   showingCached = signal<boolean>(false);
-  constructor(private api: SignatureApiService, private inventoryApi: InventoryApiService, private dialog: MatDialog, private dailyService: DailyChecklistService, private cdr: ChangeDetectorRef) {}
+  constructor( private inventoryApi: InventoryApiService, private dialog: MatDialog, private dailyService: DailyChecklistService, private cdr: ChangeDetectorRef) {}
 
   // today's date for display
   today: Date = new Date();
@@ -1169,6 +1180,25 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     this.activeSession.set(session);
   }
 
+  private showChecklistSummaryDialog(sessionType: Session['sessionType'], signatureCaptured: boolean) {
+    const items = this.inventory();
+    const total = items.length;
+    const checked = items.filter((item: any) => !!item.checked).length;
+    const progress = total > 0 ? Math.round((checked / total) * 100) : 0;
+    const completed = total > 0 && checked === total;
+
+    this.dialog.open(MessageDialogComponent, {
+      width: '620px',
+      maxWidth: '94vw',
+      panelClass: 'checklist-summary-pop',
+      data: {
+        title: `Checklist Summary (${sessionType})`,
+        message: `Progress: ${progress}% • Checked: ${checked}/${total} • Status: ${completed ? 'Completed' : 'Not Completed'} • Signature: ${signatureCaptured ? 'Captured' : 'Not Captured'}`,
+        buttonText: 'OK, Continue'
+      }
+    });
+  }
+
   private requireCompletionSignature(sessionType: Session['sessionType']): Promise<CompletedChecklistSignature | null> {
     const beforeCount = this.signatureStore.signatures().length;
     this.signatureStore.setPurpose(`Checklist Completion (${sessionType})`);
@@ -1189,15 +1219,19 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
       ref.afterClosed().subscribe(() => {
         const afterCount = this.signatureStore.signatures().length;
         if (afterCount <= beforeCount) {
+          this.showChecklistSummaryDialog(sessionType, false);
           resolve(null);
           return;
         }
 
         const latest = this.signatureStore.signatures()[0];
         if (!latest) {
+          this.showChecklistSummaryDialog(sessionType, false);
           resolve(null);
           return;
         }
+
+        this.showChecklistSummaryDialog(sessionType, true);
 
         resolve({
           user: latest.user,
@@ -1216,6 +1250,24 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     const active = this.activeSession();
     const sessionType = (active?.type ?? this.selectedSession()) as Session['sessionType'] | null;
     if (!sessionType) return null;
+
+    const proceedRef = this.dialog.open(MessageDialogComponent, {
+      width: '420px',
+      data: {
+        title: 'Checklist Complete',
+        message: 'You are done with the checklist. Press OK to continue to signature.',
+        cancelButtonText: 'Cancel',
+        cancelResult: 'cancel',
+        buttonText: 'OK',
+        result: 'ok'
+      }
+    });
+
+    const proceed = await new Promise<boolean>((resolve) => {
+      proceedRef.afterClosed().subscribe((result: any) => resolve(result === 'ok'));
+    });
+
+    if (!proceed) return null;
 
     const signature = await this.requireCompletionSignature(sessionType);
     if (!signature) {

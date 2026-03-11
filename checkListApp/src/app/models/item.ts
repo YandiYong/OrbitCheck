@@ -32,7 +32,7 @@ export interface Session {
   id?: number;
   startedAt: Date;
   endedAt?: Date;
-  sessionType: 'Pre-Shift' | 'Post-Shift' | 'Post-Resus';
+  sessionType: 'Pre-Shift' | 'Post-Shift' | 'Post-Resus'| 'Audit';
 }
 
 export interface CompletedChecklistItem {
