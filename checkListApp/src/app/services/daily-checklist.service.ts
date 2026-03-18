@@ -191,7 +191,7 @@ export class DailyChecklistService {
     activeSession: any,
     items: any[],
     date: Date = new Date(),
-    signature?: CompletedChecklistSignature
+    signature: CompletedChecklistSignature
   ): CompletedChecklistRecord {
     const now = new Date();
     const savedAt = formatDateTimeSAST(now) ?? now.toISOString();
@@ -229,14 +229,26 @@ export class DailyChecklistService {
       return sum + required;
     }, 0);
 
+    const formatTimeOnly = (value: any): string | null => {
+      const parsed = value instanceof Date ? value : this.parseDateTime(value);
+      if (!parsed || isNaN(parsed.getTime())) return null;
+      const hh = String(parsed.getHours()).padStart(2, '0');
+      const mm = String(parsed.getMinutes()).padStart(2, '0');
+      const ss = String(parsed.getSeconds()).padStart(2, '0');
+      return `${hh}:${mm}:${ss}`;
+    };
+
+    const startTime = formatTimeOnly(activeSession?.startTime);
+    const endTime = formatTimeOnly(activeSession?.endTime);
+
     return {
       id: `${sessionType}-${now.toISOString()}`,
       checklistDate: this.formatDate(date),
       savedAt,
       session: {
         type: sessionType,
-        startTime: activeSession?.startTime ?? null,
-        endTime: activeSession?.endTime ?? null,
+        startTime,
+        endTime,
         durationSeconds: typeof activeSession?.durationSeconds === 'number' ? activeSession.durationSeconds : null
       },
       summary: {
@@ -245,7 +257,7 @@ export class DailyChecklistService {
         depletedItems: mappedItems.filter((i: any) => i.status === 'depleted').length,
         expiredItems: mappedItems.filter((i: any) => i.status === 'expired').length
       },
-      ...(signature ? { signature } : {}),
+      signature,
       items: mappedItems
     };
   }
@@ -349,6 +361,29 @@ export class DailyChecklistService {
       if (!s.endTime && (!sessionType || s.type === sessionType)) return s;
     }
     return null;
+  }
+
+  /** Returns all dates that have completed checklist records, sorted newest-first. */
+  getHistoryDates(): Date[] {
+    const dates: Date[] = [];
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (!key.startsWith(this.completedPrefix)) continue;
+        const datePart = key.substring(this.completedPrefix.length);
+        const parts = datePart.split('/');
+        if (parts.length === 3) {
+          const d = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          const y = parseInt(parts[2], 10);
+          const date = new Date(y, m - 1, d);
+          if (!isNaN(date.getTime())) dates.push(date);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to read history dates', e);
+    }
+    dates.sort((a, b) => b.getTime() - a.getTime());
+    return dates;
   }
 
   private parseDateTime(dateString: string | null | undefined): Date | null {

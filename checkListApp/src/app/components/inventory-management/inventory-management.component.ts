@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { firstValueFrom } from 'rxjs';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSidenavModule } from '@angular/material/sidenav';
@@ -18,7 +19,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 // import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { FormsModule } from '@angular/forms';
-import { CompletedChecklistSignature, Session } from '../../models/item';
+import { CompletedChecklistRecord, CompletedChecklistSignature, Session } from '../../models/item';
 import { parseAnyDate, formatDDMMYYYY, formatDateTimeSAST } from '../../utils/date-utils';
 import { DailyChecklistService } from '../../services/daily-checklist.service';
 import { InventoryApiService } from '../../services/inventory-api.service';
@@ -35,6 +36,7 @@ import { MessageDialogComponent } from '../../shared/message-dialog.component';
 
 import { DsvPageComponent, DsvStore, SignatureApiService } from 'signature';
 import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
+import { HistoryViewerComponent } from '../history-viewer/history-viewer.component';
 @Component({
   selector: 'app-inventory-management',
   standalone: true,
@@ -69,6 +71,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     SignatureWrapperModule,
     HttpClientModule,
   ],
+    // HistoryViewerComponent is opened via MatDialog — no need to add it to imports
   providers: [InventoryApiService],
   template: `
   <mat-toolbar color="primary" style="display:flex; justify-content:space-between;">
@@ -78,8 +81,12 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
         <span style="font-size:2rem; opacity:0.9; margin-left:32px;">{{ today | date:'fullDate' }}</span>
       </div>
     </div>
-    <div style="display:flex; align-items:center; margin-right:12px;"> 
-      <mat-icon >trolley</mat-icon>
+    <div style="display:flex; align-items:center; gap:8px; margin-right:12px;">
+      <button mat-flat-button class="history-cta" (click)="openHistoryViewer()">
+        <mat-icon>history</mat-icon>
+        History
+      </button>
+      <mat-icon>trolley</mat-icon>
     </div>
   </mat-toolbar>
     <div *ngIf="loading()" style="padding:8px 12px;">
@@ -128,7 +135,6 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
 
             <div>
               <button mat-flat-button (click)="startSession()" *ngIf="!activeSession()" style="background:var(--color-success); color:white;">Start</button>
-              <button mat-flat-button (click)="exportCompletedChecklistJson()" [disabled]="activeSession()" [style.background]="activeSession() ? '#9ca3af' : '#0284c7'" [style.color]="activeSession() ? '#6b7280' : 'white'" [style.box-shadow]="activeSession() ? 'none' : '0 2px 4px rgba(2,132,199,0.2)'" style="margin-left:var(--space-sm); cursor:pointer;">Export JSON</button>
               <button mat-flat-button (click)="finishSession()" *ngIf="activeSession()" style="background:var(--color-danger); margin-left:var(--space-sm); color:white;">Finish</button>
             </div>
           </div>
@@ -179,6 +185,30 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
   styles: [`
     :host { display:block; height:100%; font-family: 'Roboto', sans-serif; background:#f3f6f9; }
     .full-table { width:100%; }
+    .history-cta {
+      background: linear-gradient(135deg, #facc15 0%, #f59e0b 100%) !important;
+      color: #111827 !important;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.14), 0 6px 16px rgba(245, 158, 11, 0.45);
+      animation: historyPulse 1.8s ease-in-out infinite;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .history-cta:hover {
+      transform: translateY(-1px) scale(1.03);
+      box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.18), 0 10px 22px rgba(245, 158, 11, 0.55);
+    }
+    .history-cta:focus-visible {
+      outline: 3px solid #ffffff;
+      outline-offset: 2px;
+    }
+    @keyframes historyPulse {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.14), 0 6px 16px rgba(245, 158, 11, 0.45); }
+      50% { box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.2), 0 12px 24px rgba(245, 158, 11, 0.62); }
+    }
     /* Ensure mat-select dropdown panel is opaque and readable */
     ::ng-deep .mat-mdc-select-panel, ::ng-deep .mat-select-panel {
       background-color: white !important;
@@ -1285,14 +1315,37 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     const finished = this.dailyService.finishSession(sessionType, snapshotEnd);
     const completedSession = finished ?? active;
     if (completedSession) {
-      const completionRecord = this.dailyService.buildCompletedChecklistRecord(sessionType, completedSession, currentItems, new Date(), signature);
+      const completionRecord: CompletedChecklistRecord = this.dailyService.buildCompletedChecklistRecord(sessionType, completedSession, currentItems, new Date(), signature);
       this.dailyService.saveCompletedChecklist(completionRecord, new Date());
+      try {
+        await firstValueFrom(this.inventoryApi.postCompletedChecklist(completionRecord));
+      } catch (err: any) {
+        console.error('Failed to post completed checklist', err);
+        const msg = err?.error?.message ?? err?.message ?? err?.statusText ?? 'Unknown error';
+        this.dialog.open(MessageDialogComponent, {
+          width: '420px',
+          data: {
+            title: 'Sync Failed',
+            message: `Checklist saved locally, but posting to /api/checklist/completed failed: ${msg}`,
+            buttonText: 'OK'
+          }
+        });
+      }
     }
     // persist one more time
     this.saveTodaySnapshot();
     this.activeSession.set(null);
     this.selectedSession.set(null);
     return finished;
+  }
+
+  openHistoryViewer() {
+    this.dialog.open(HistoryViewerComponent, {
+      width: '92vw',
+      maxWidth: '1100px',
+      height: '85vh',
+      panelClass: 'hv-dialog-panel',
+    });
   }
 
   exportCompletedChecklistJson() {

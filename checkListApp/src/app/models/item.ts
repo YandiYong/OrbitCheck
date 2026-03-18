@@ -39,7 +39,7 @@ export interface CompletedChecklistItem {
   id: number;
   name: string;
   category: string | null;
-  status: 'pending' | 'insufficient' | 'satisfactory' | 'excessive' | 'expired' | 'depleted';
+  status: DisplayItem['status'];
   checked: boolean;
   checkedDate: string | null;
   controlQuantity: number | null;
@@ -64,7 +64,7 @@ export interface CompletedChecklistRecord {
     type: Session['sessionType'];
     startTime: string | null;
     endTime: string | null;
-    durationSeconds: number | null;
+    durationSeconds?: number | null;
   };
   summary: {
     totalItems: number;
@@ -72,6 +72,6 @@ export interface CompletedChecklistRecord {
     depletedItems: number;
     expiredItems: number;
   };
-  signature?: CompletedChecklistSignature;
-  items: CompletedChecklistItem[];
+  signature: CompletedChecklistSignature;
+  items?: CompletedChecklistItem[];
 }
