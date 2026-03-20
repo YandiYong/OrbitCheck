@@ -10,7 +10,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { DailyChecklistService } from '../../services/daily-checklist.service';
+import { firstValueFrom } from 'rxjs';
+import { InventoryApiService } from '../../services/inventory-api.service';
 import { CompletedChecklistRecord } from '../../models/item';
 
 @Component({
@@ -106,15 +107,15 @@ import { CompletedChecklistRecord } from '../../models/item';
           <div *ngFor="let rec of selectedRecords(); let i = index" class="hv-record-card">
             <!-- Session badge + timing -->
             <div class="hv-record-top">
-              <span class="hv-session-badge" [class]="'hv-session-' + sessionClass(rec.session.type)">
-                {{ rec.session.type }}
+              <span class="hv-session-badge" [class]="'hv-session-' + sessionClass(rec.session?.type)">
+                {{ rec.session?.type || 'Unknown' }}
               </span>
               <span class="hv-timing">
                 <mat-icon style="font-size:0.95rem;width:0.95rem;height:0.95rem;vertical-align:middle;">schedule</mat-icon>
-                {{ rec.session.startTime || '—' }}
-                <span *ngIf="rec.session.endTime"> – {{ rec.session.endTime }}</span>
-                <span *ngIf="rec.session.durationSeconds != null" class="hv-duration">
-                  &nbsp;({{ formatDuration(rec.session.durationSeconds!) }})
+                {{ rec.session?.startTime || '—' }}
+                <span *ngIf="rec.session?.endTime"> – {{ rec.session?.endTime }}</span>
+                <span *ngIf="rec.session?.durationSeconds != null" class="hv-duration">
+                  &nbsp;({{ formatDuration(rec.session?.durationSeconds!) }})
                 </span>
               </span>
               <span class="hv-saved-at">Saved: {{ rec.savedAt }}</span>
@@ -124,15 +125,15 @@ import { CompletedChecklistRecord } from '../../models/item';
             <div class="hv-summary">
               <div class="hv-summary-item hv-ok">
                 <mat-icon>check_circle</mat-icon>
-                <span>{{ rec.summary.checkedItems }} / {{ rec.summary.totalItems }} checked</span>
+                <span>{{ rec.summary?.checkedItems ?? 0 }} / {{ rec.summary?.totalItems ?? 0 }} checked</span>
               </div>
-              <div class="hv-summary-item hv-depleted" *ngIf="rec.summary.depletedItems > 0">
+              <div class="hv-summary-item hv-depleted" *ngIf="(rec.summary?.depletedItems ?? 0) > 0">
                 <mat-icon>remove_shopping_cart</mat-icon>
-                <span>{{ rec.summary.depletedItems }} depleted</span>
+                <span>{{ rec.summary?.depletedItems ?? 0 }} depleted</span>
               </div>
-              <div class="hv-summary-item hv-expired" *ngIf="rec.summary.expiredItems > 0">
+              <div class="hv-summary-item hv-expired" *ngIf="(rec.summary?.expiredItems ?? 0) > 0">
                 <mat-icon>warning_amber</mat-icon>
-                <span>{{ rec.summary.expiredItems }} expired</span>
+                <span>{{ rec.summary?.expiredItems ?? 0 }} expired</span>
               </div>
             </div>
 
@@ -168,9 +169,9 @@ import { CompletedChecklistRecord } from '../../models/item';
               <button
                 mat-stroked-button
                 class="hv-items-toggle"
-                (click)="toggleItems(rec.id)">
-                <mat-icon>{{ expandedRecord() === rec.id ? 'expand_less' : 'expand_more' }}</mat-icon>
-                {{ expandedRecord() === rec.id ? 'Hide' : 'Show' }} items ({{ rec.items.length }})
+                (click)="toggleItems(recordKey(rec, i))">
+                <mat-icon>{{ expandedRecord() === recordKey(rec, i) ? 'expand_less' : 'expand_more' }}</mat-icon>
+                {{ expandedRecord() === recordKey(rec, i) ? 'Hide' : 'Show' }} items ({{ rec.items.length }})
               </button>
               <button
                 mat-stroked-button
@@ -182,7 +183,7 @@ import { CompletedChecklistRecord } from '../../models/item';
             </div>
 
             <!-- Expanded item list -->
-            <div *ngIf="expandedRecord() === rec.id && rec.items" class="hv-items-table">
+            <div *ngIf="expandedRecord() === recordKey(rec, i) && rec.items" class="hv-items-table">
               <div class="hv-items-header-row">
                 <span class="hv-col-name">Item</span>
                 <span class="hv-col-cat">Category</span>
@@ -464,13 +465,14 @@ import { CompletedChecklistRecord } from '../../models/item';
 })
 export class HistoryViewerComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<HistoryViewerComponent>);
-  private dailyService = inject(DailyChecklistService);
+  private inventoryApi = inject(InventoryApiService);
 
   historyDates = signal<Date[]>([]);
   selectedFilterDate = signal<Date | null>(null);
   selectedDate = signal<Date | null>(null);
   selectedRecords = signal<CompletedChecklistRecord[]>([]);
   expandedRecord = signal<string | null>(null);
+  private allRecords = signal<CompletedChecklistRecord[]>([]);
 
   filteredHistoryDates = computed(() => {
     const picked = this.selectedFilterDate();
@@ -483,21 +485,13 @@ export class HistoryViewerComponent implements OnInit {
   private recordCountCache = new Map<string, number>();
 
   ngOnInit() {
-    const dates = this.dailyService.getHistoryDates();
-    this.historyDates.set(dates);
-    // Pre-cache counts
-    for (const d of dates) {
-      const recs = this.dailyService.getCompletedChecklists(d);
-      this.recordCountCache.set(this.dateKey(d), recs.length);
-    }
-    // Auto-select the most recent date if any
-    if (dates.length > 0) this.selectDate(dates[0]);
+    void this.loadHistoryFromApi();
   }
 
   selectDate(d: Date) {
     this.selectedDate.set(d);
     this.expandedRecord.set(null);
-    const records = this.dailyService.getCompletedChecklists(d);
+    const records = this.recordsForDate(d);
     this.selectedRecords.set(records);
   }
 
@@ -563,8 +557,10 @@ export class HistoryViewerComponent implements OnInit {
   }
 
   progressPct(rec: CompletedChecklistRecord): number {
-    if (!rec.summary.totalItems) return 0;
-    return Math.round((rec.summary.checkedItems / rec.summary.totalItems) * 100);
+    const total = rec.summary?.totalItems ?? 0;
+    const checked = rec.summary?.checkedItems ?? 0;
+    if (!total) return 0;
+    return Math.round((checked / total) * 100);
   }
 
   exportRecordItemsCsv(rec: CompletedChecklistRecord) {
@@ -616,7 +612,7 @@ export class HistoryViewerComponent implements OnInit {
     window.URL.revokeObjectURL(url);
   }
 
-  sessionClass(type: string): string {
+  sessionClass(type: string | null | undefined): string {
     if (!type) return 'audit';
     const t = type.toLowerCase();
     if (t.startsWith('pre')) return 'pre';
@@ -626,6 +622,95 @@ export class HistoryViewerComponent implements OnInit {
   }
 
   close() { this.dialogRef.close(); }
+
+  private async loadHistoryFromApi() {
+    try {
+      const records = await firstValueFrom(this.inventoryApi.getCompletedChecklists());
+      const rawRecords = Array.isArray(records) ? records : [];
+      
+      // Deduplicate records by checklistDate + sessionType + signedBy signature
+      const dedupedRecords = this.deduplicateRecords(rawRecords);
+      this.allRecords.set(dedupedRecords);
+
+      const counts = new Map<string, number>();
+      const dateMap = new Map<string, Date>();
+
+      for (const rec of this.allRecords()) {
+        const d = this.parseRecordDate(rec?.checklistDate);
+        if (!d) continue;
+        const key = this.dateKey(d);
+        if (!dateMap.has(key)) dateMap.set(key, new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+
+      const dates = Array.from(dateMap.values()).sort((a, b) => b.getTime() - a.getTime());
+      this.recordCountCache = counts;
+      this.historyDates.set(dates);
+
+      if (dates.length > 0) this.selectDate(dates[0]);
+    } catch (error) {
+      console.error('Failed to load checklist history from API', error);
+      this.allRecords.set([]);
+      this.historyDates.set([]);
+      this.selectedRecords.set([]);
+      this.recordCountCache.clear();
+    }
+  }
+
+  private deduplicateRecords(records: CompletedChecklistRecord[]): CompletedChecklistRecord[] {
+    const seen = new Map<string, CompletedChecklistRecord>();
+    
+    for (const rec of records) {
+      // Create a unique key using date + session type + signature user
+      const dateStr = rec.checklistDate ?? '';
+      const sessionType = rec.session?.type ?? 'Unknown';
+      const signedBy = rec.signature?.user ?? '';
+      const dupKey = `${dateStr}|${sessionType}|${signedBy}`;
+      
+      // Keep the first occurrence; if there are duplicates, prefer the one with items
+      if (!seen.has(dupKey)) {
+        seen.set(dupKey, rec);
+      } else {
+        const existing = seen.get(dupKey)!;
+        // If this newer record has items and existing doesn't, use this one instead
+        if ((rec.items?.length ?? 0) > 0 && (existing.items?.length ?? 0) === 0) {
+          seen.set(dupKey, rec);
+        }
+      }
+    }
+    
+    return Array.from(seen.values());
+  }
+
+  private recordsForDate(d: Date): CompletedChecklistRecord[] {
+    return this.allRecords().filter((rec) => {
+      const recDate = this.parseRecordDate(rec?.checklistDate);
+      return !!recDate && this.isSameDay(recDate, d);
+    });
+  }
+
+  private parseRecordDate(value: string | null | undefined): Date | null {
+    if (!value || typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    const ddmmyyyy = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (ddmmyyyy) {
+      const day = parseInt(ddmmyyyy[1], 10);
+      const month = parseInt(ddmmyyyy[2], 10);
+      const year = parseInt(ddmmyyyy[3], 10);
+      const hours = ddmmyyyy[4] ? parseInt(ddmmyyyy[4], 10) : 0;
+      const minutes = ddmmyyyy[5] ? parseInt(ddmmyyyy[5], 10) : 0;
+      const seconds = ddmmyyyy[6] ? parseInt(ddmmyyyy[6], 10) : 0;
+      const parsed = new Date(year, month - 1, day, hours, minutes, seconds);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const iso = new Date(trimmed);
+    return isNaN(iso.getTime()) ? null : iso;
+  }
+
+  recordKey(rec: CompletedChecklistRecord, index: number): string {
+    return rec.id ?? `${rec.checklistDate ?? 'unknown-date'}-${rec.session?.type ?? 'session'}-${index}`;
+  }
 
   private dateKey(d: Date): string {
     return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;

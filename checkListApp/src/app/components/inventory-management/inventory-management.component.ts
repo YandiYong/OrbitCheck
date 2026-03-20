@@ -34,9 +34,8 @@ import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.co
 import { HttpClientModule } from '@angular/common/http';
 import { MessageDialogComponent } from '../../shared/message-dialog.component';
 
-import { DsvPageComponent, DsvStore, SignatureApiService } from 'signature';
+import { DsvPageComponent, DsvStore } from 'signature';
 import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
-import { HistoryViewerComponent } from '../history-viewer/history-viewer.component';
 @Component({
   selector: 'app-inventory-management',
   standalone: true,
@@ -71,7 +70,6 @@ import { HistoryViewerComponent } from '../history-viewer/history-viewer.compone
     SignatureWrapperModule,
     HttpClientModule,
   ],
-    // HistoryViewerComponent is opened via MatDialog — no need to add it to imports
   providers: [InventoryApiService],
   template: `
   <mat-toolbar color="primary" style="display:flex; justify-content:space-between;">
@@ -82,10 +80,6 @@ import { HistoryViewerComponent } from '../history-viewer/history-viewer.compone
       </div>
     </div>
     <div style="display:flex; align-items:center; gap:8px; margin-right:12px;">
-      <button mat-flat-button class="history-cta" (click)="openHistoryViewer()">
-        <mat-icon>history</mat-icon>
-        History
-      </button>
       <mat-icon>trolley</mat-icon>
     </div>
   </mat-toolbar>
@@ -135,7 +129,7 @@ import { HistoryViewerComponent } from '../history-viewer/history-viewer.compone
 
             <div>
               <button mat-flat-button (click)="startSession()" *ngIf="!activeSession()" style="background:var(--color-success); color:white;">Start</button>
-              <button mat-flat-button (click)="finishSession()" *ngIf="activeSession()" style="background:var(--color-danger); margin-left:var(--space-sm); color:white;">Finish</button>
+              <button mat-flat-button (click)="finishSession()" *ngIf="activeSession()" [disabled]="isFinishingSession()" style="background:var(--color-danger); margin-left:var(--space-sm); color:white;">Finish</button>
             </div>
           </div>
         </div>
@@ -251,6 +245,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   ];
   selectedSession = signal<Session['sessionType'] | null>(null);
   activeSession = signal<any | null>(null);
+  isFinishingSession = signal<boolean>(false);
   now = signal<Date>(new Date());
   loading = signal<boolean>(false);
   apiError = signal<string | null>(null);
@@ -476,18 +471,6 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         const msg = err?.message ?? (err?.statusText ?? String(err));
         this.apiError.set('Failed to load inventory from API: ' + msg);
-        // attempt to show today's snapshot if available
-        try {
-          const snap = this.dailyService.getSnapshot(new Date());
-          if (snap && Array.isArray(snap) && snap.length) {
-            this.showingCached.set(true);
-            // show minimal cached snapshot as items with limited fields
-            const cachedItems = (snap as any[]).map(s => ({ id: s.id, name: s.name, status: s.status, checked: s.checked, checkedDate: s.checkedDate }));
-            this.inventory.set(cachedItems);
-          }
-        } catch (e) {
-          // ignore
-        }
       }
     });
   }
@@ -1186,9 +1169,6 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   }
 
   private saveTodaySnapshot() {
-    // snapshot only essential fields to keep storage small
-    const snapshot = this.inventory().map(i => ({ id: i.id, name: i.name, category: i.category ?? null, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null }));
-    this.dailyService.saveSnapshot(new Date(), snapshot);
     // Ensure any in-place mutations are surfaced to consumers by creating a new array reference
     try {
       this.inventory.set(this.inventory().slice());
@@ -1275,11 +1255,14 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   }
 
   async finishSession() {
-    const currentItems = this.inventory();
-    const snapshotEnd = currentItems.map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null, usedToday: i.usedToday ?? null }));
-    const active = this.activeSession();
-    const sessionType = (active?.type ?? this.selectedSession()) as Session['sessionType'] | null;
-    if (!sessionType) return null;
+    if (this.isFinishingSession()) return null;
+    this.isFinishingSession.set(true);
+    try {
+      const currentItems = this.inventory();
+      const snapshotEnd = currentItems.map(i => ({ id: i.id, name: i.name, status: i.status, checked: i.checked ?? false, checkedDate: i.checkedDate ?? null, usedToday: i.usedToday ?? null }));
+      const active = this.activeSession();
+      const sessionType = (active?.type ?? this.selectedSession()) as Session['sessionType'] | null;
+      if (!sessionType) return null;
 
     const proceedRef = this.dialog.open(MessageDialogComponent, {
       width: '420px',
@@ -1297,72 +1280,71 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
       proceedRef.afterClosed().subscribe((result: any) => resolve(result === 'ok'));
     });
 
-    if (!proceed) return null;
+      if (!proceed) return null;
 
-    const signature = await this.requireCompletionSignature(sessionType);
-    if (!signature) {
-      this.dialog.open(MessageDialogComponent, {
-        width: '420px',
-        data: {
-          title: 'Signature Required',
-          message: 'Please provide a signature before finishing the checklist.',
-          buttonText: 'OK'
-        }
-      });
-      return null;
-    }
-
-    const finished = this.dailyService.finishSession(sessionType, snapshotEnd);
-    const completedSession = finished ?? active;
-    if (completedSession) {
-      const completionRecord: CompletedChecklistRecord = this.dailyService.buildCompletedChecklistRecord(sessionType, completedSession, currentItems, new Date(), signature);
-      this.dailyService.saveCompletedChecklist(completionRecord, new Date());
-      try {
-        await firstValueFrom(this.inventoryApi.postCompletedChecklist(completionRecord));
-      } catch (err: any) {
-        console.error('Failed to post completed checklist', err);
-        const msg = err?.error?.message ?? err?.message ?? err?.statusText ?? 'Unknown error';
+      const signature = await this.requireCompletionSignature(sessionType);
+      if (!signature) {
         this.dialog.open(MessageDialogComponent, {
           width: '420px',
           data: {
-            title: 'Sync Failed',
-            message: `Checklist saved locally, but posting to /api/checklist/completed failed: ${msg}`,
+            title: 'Signature Required',
+            message: 'Please provide a signature before finishing the checklist.',
             buttonText: 'OK'
           }
         });
+        return null;
       }
-    }
-    // persist one more time
-    this.saveTodaySnapshot();
-    this.activeSession.set(null);
-    this.selectedSession.set(null);
-    return finished;
-  }
 
-  openHistoryViewer() {
-    this.dialog.open(HistoryViewerComponent, {
-      width: '92vw',
-      maxWidth: '1100px',
-      height: '85vh',
-      panelClass: 'hv-dialog-panel',
-    });
-  }
-
-  exportCompletedChecklistJson() {
-    const records = this.dailyService.getCompletedChecklists(new Date());
-    if (!records.length) {
-      this.dialog.open(MessageDialogComponent, {
-        width: '420px',
-        data: {
-          title: 'No Data',
-          message: 'No completed checklist found for today.',
-          buttonText: 'OK'
+      const finished = this.dailyService.finishSession(sessionType, snapshotEnd);
+      const completedSession = finished ?? active;
+      if (completedSession) {
+        const completionRecord: CompletedChecklistRecord = this.dailyService.buildCompletedChecklistRecord(sessionType, completedSession, currentItems, new Date(), signature);
+        try {
+          await firstValueFrom(this.inventoryApi.postCompletedChecklist(completionRecord));
+        } catch (err: any) {
+          console.error('Failed to post completed checklist', err);
+          console.error('API error body:', err?.error);
+          const apiErrors = err?.error?.errors
+            ? Object.values(err.error.errors).flat().join(' ')
+            : null;
+          const msg = apiErrors ?? err?.error?.title ?? err?.error?.message ?? err?.message ?? err?.statusText ?? 'Unknown error';
+          this.dialog.open(MessageDialogComponent, {
+            width: '420px',
+            data: {
+              title: 'Sync Failed',
+              message: `Failed to post completed checklist to /api/checklist/completed: ${msg}`,
+              buttonText: 'OK'
+            }
+          });
         }
-      });
-      return;
+      }
+      // persist one more time
+      this.saveTodaySnapshot();
+      this.activeSession.set(null);
+      this.selectedSession.set(null);
+      return finished;
+    } finally {
+      this.isFinishingSession.set(false);
     }
+  }
 
+
+
+  async exportCompletedChecklistJson() {
     try {
+      const records = await firstValueFrom(this.inventoryApi.getCompletedChecklists());
+      if (!records.length) {
+        this.dialog.open(MessageDialogComponent, {
+          width: '420px',
+          data: {
+            title: 'No Data',
+            message: 'No completed checklist found from API.',
+            buttonText: 'OK'
+          }
+        });
+        return;
+      }
+
       const today = new Date().toISOString().slice(0, 10);
       const fileName = `completed-checklists-${today}.json`;
       const payload = JSON.stringify(records, null, 2);
@@ -1378,7 +1360,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         width: '420px',
         data: {
           title: 'Export Failed',
-          message: 'Failed to export completed checklist JSON.',
+          message: 'Failed to fetch/export completed checklist JSON from API.',
           buttonText: 'OK'
         }
       });

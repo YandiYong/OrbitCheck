@@ -7,6 +7,8 @@ import {
   effect,
   computed,
   OnDestroy,
+  Inject,
+  Optional,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
@@ -15,6 +17,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSliderModule } from '@angular/material/slider';
+import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { DsvStore } from './dsv.store';
 import { SignatureApiService } from './signature-api.service';
 
@@ -129,7 +132,11 @@ export class DsvSignatureFormComponent implements AfterViewInit, OnDestroy {
     this.ctx.lineJoin = 'round';
   });
 
-  constructor(public store: DsvStore, private api: SignatureApiService) {}
+  constructor(
+    public store: DsvStore,
+    private api: SignatureApiService,
+    @Optional() @Inject(MAT_DIALOG_DATA) private dialogData: any
+  ) {}
 
   ngAfterViewInit(): void {
     // Initialize 2D context and set up resizing + pen settings reactions
@@ -245,26 +252,32 @@ export class DsvSignatureFormComponent implements AfterViewInit, OnDestroy {
   }
 
   save() {
-    // Validate, snapshot canvas as PNG, persist locally, and POST to backend
+    // Validate and snapshot canvas as PNG.
+    // For checklist completion flow, signature is sent inside /api/checklist/completed only.
     if (!this.canSave()) {
       alert('Please fill in all fields');
       return;
     }
     const canvas = this.canvasRef.nativeElement;
     const dataUrl = canvas.toDataURL('image/png');
-    // Add locally and auto-save to backend
+    // Add locally so parent flow can pick it up from the store
     this.store.addSignature(dataUrl);
-    const payload = {
-      image: dataUrl,
-      user: this.store.currentUser(),
-      purpose: this.store.purpose(),
-      signedFor: this.store.signatureFor(),
-      date: new Date(),
-    };
-    this.api.save(payload).subscribe({
-      next: () => {},
-      error: (e) => console.error('API save failed', e),
-    });
+
+    const isChecklistCompletion = this.dialogData?.source === 'checklist-completion';
+    if (!isChecklistCompletion) {
+      const payload = {
+        image: dataUrl,
+        user: this.store.currentUser(),
+        purpose: this.store.purpose(),
+        signedFor: this.store.signatureFor(),
+        date: new Date(),
+      };
+      this.api.save(payload).subscribe({
+        next: () => {},
+        error: (e) => console.error('API save failed', e),
+      });
+    }
+
     this.clear();
     this.store.setSignatureFor('');
     this.store.setPurpose('');

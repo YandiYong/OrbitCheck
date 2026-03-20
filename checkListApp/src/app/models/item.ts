@@ -57,7 +57,7 @@ export interface CompletedChecklistSignature {
 }
 
 export interface CompletedChecklistRecord {
-  id: string;
+  id?: string;
   checklistDate: string;
   savedAt: string;
   session: {

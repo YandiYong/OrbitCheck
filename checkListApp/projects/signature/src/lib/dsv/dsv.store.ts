@@ -1,4 +1,4 @@
-import { Injectable, effect, signal } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 
 // Shape of a stored signature record used by the app and export
 export interface StoredSignature {
@@ -22,21 +22,7 @@ export class DsvStore {
   // In-memory list of saved signatures
   readonly signatures = signal<StoredSignature[]>([]);
 
-  constructor() {
-    // Load previously saved signatures from localStorage (if any)
-    const raw = localStorage.getItem('dsv.signatures');
-    if (raw) {
-      try {
-        this.signatures.set(JSON.parse(raw));
-      } catch {}
-    }
-    // Persist signatures to localStorage whenever they change
-    effect(() => {
-      try {
-        localStorage.setItem('dsv.signatures', JSON.stringify(this.signatures()));
-      } catch {}
-    });
-  }
+  constructor() {}
 
   setSignatureFor(value: string) {
     this.signatureFor.set(value);
