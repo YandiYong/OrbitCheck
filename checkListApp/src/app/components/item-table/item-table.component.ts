@@ -103,7 +103,7 @@ import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/dat
         <th mat-header-cell *matHeaderCellDef style="text-align:left; padding:var(--space-lg);">Available</th>
         <td mat-cell *matCellDef="let row" style="padding:var(--space-lg); color:var(--color-subtle);">
           <div>
-            {{ row.item.usedToday != null ? row.item.usedToday : '-' }}
+            {{ row.item.available != null ? row.item.available : '-' }}
           </div>
         </td>
       </ng-container>
@@ -256,7 +256,7 @@ export class ItemTableComponent {
     try { console.log('ItemTable.computeViewModel running, items ids:', (this._items||[]).map(i=>i.id)); } catch(e) {}
     const cats = this.categories ?? [];
     this.computedItems = (this._items || []).map(item => {
-      try { console.log('Item row', { id: item.id, checked: item.checked, status: item.status, usedToday: item.usedToday, controlQuantity: item.controlQuantity }); } catch(e) {}
+      try { console.log('Item row', { id: item.id, checked: item.checked, status: item.status, available: item.available, controlQuantity: item.controlQuantity }); } catch(e) {}
       const expired = this.isExpired(item.expiryDate);
       const checkboxStyle = this.getCheckboxStyle(item);
       const expiredCount = this.getExpiredCount(item);

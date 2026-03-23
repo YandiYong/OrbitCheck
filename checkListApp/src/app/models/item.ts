@@ -43,7 +43,7 @@ export interface CompletedChecklistItem {
   checked: boolean;
   checkedDate: string | null;
   controlQuantity: number | null;
-  usedToday: number | null;
+  available: number | null;
   expiryDate: string | null;
   replacementDate: string | null;
 }

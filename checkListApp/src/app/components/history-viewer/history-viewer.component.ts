@@ -567,7 +567,7 @@ export class HistoryViewerComponent implements OnInit {
     const rows = Array.isArray(rec.items) ? rec.items : [];
     if (!rows.length) return;
 
-    const headers = ['id', 'name', 'category', 'status', 'checked', 'checkedDate', 'controlQuantity', 'usedToday', 'expiryDate', 'replacementDate'];
+    const headers = ['id', 'name', 'category', 'status', 'checked', 'checkedDate', 'controlQuantity', 'available', 'expiryDate', 'replacementDate'];
     const escapeCsv = (value: unknown): string => {
       if (value == null) return '';
       const s = String(value);
@@ -588,7 +588,7 @@ export class HistoryViewerComponent implements OnInit {
         item.checked,
         item.checkedDate,
         item.controlQuantity,
-        item.usedToday,
+        item.available,
         item.expiryDate,
         item.replacementDate,
       ];

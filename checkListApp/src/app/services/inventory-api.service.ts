@@ -57,7 +57,7 @@ export class InventoryApiService {
       checked: Boolean(this.pick(item, 'checked', 'Checked')),
       checkedDate: (this.pick(item, 'checkedDate', 'CheckedDate') ?? null) as string | null,
       controlQuantity: this.toNumberOrNull(this.pick(item, 'controlQuantity', 'ControlQuantity')),
-      usedToday: this.toNumberOrNull(this.pick(item, 'usedToday', 'UsedToday')),
+      available: this.toNumberOrNull(this.pick(item, 'available', 'Available', 'usedToday', 'UsedToday')),
       expiryDate: (this.pick(item, 'expiryDate', 'ExpiryDate') ?? null) as string | null,
       replacementDate: (this.pick(item, 'replacementDate', 'ReplacementDate') ?? null) as string | null,
     }));

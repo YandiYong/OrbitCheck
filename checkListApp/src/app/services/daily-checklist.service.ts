@@ -104,30 +104,17 @@ export class DailyChecklistService {
   ): CompletedChecklistRecord {
     const now = new Date();
     const savedAt = formatDateTimeSAST(now) ?? now.toISOString();
-    
-    // Helper to determine if an item is expired
-    const isExpired = (expiryDate: any): boolean => {
-      if (!expiryDate) return false;
-      const parsed = parseAnyDate(expiryDate);
-      return parsed ? isBeforeToday(parsed) : false;
-    };
-    
+
     const mappedItems = (items ?? []).map((i: any) => {
-      // If item is expired, override status to 'expired'
-      let itemStatus = i.status;
-      if (isExpired(i.expiryDate)) {
-        itemStatus = 'expired';
-      }
-      
       return {
         id: i.id,
         name: i.name,
         category: i.category ?? null,
-        status: itemStatus,
+        status: i.status,
         checked: i.checked ?? false,
         checkedDate: this.toApiDateTime(i.checkedDate),
         controlQuantity: typeof i.controlQuantity === 'number' ? i.controlQuantity : null,
-        usedToday: typeof i.usedToday === 'number' ? i.usedToday : null,
+        available: typeof i.available === 'number' ? i.available : null,
         expiryDate: this.toApiDateTime(i.expiryDate),
         replacementDate: this.toApiDateTime(i.replacementDate)
       };

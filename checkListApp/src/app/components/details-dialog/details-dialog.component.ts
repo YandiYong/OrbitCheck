@@ -27,7 +27,7 @@ type DialogDisplayItem = Omit<DisplayItem, 'items'> & {
   replacementDate?: string | Date | null;
   checkedDate?: string | Date | null;
   controlQuantity?: number;
-  usedToday?: number | null;
+  available?: number | null;
   items?: DialogVariantItem[];
 };
 
