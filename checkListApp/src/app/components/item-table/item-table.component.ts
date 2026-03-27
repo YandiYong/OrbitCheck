@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { StatusColorPipe } from '../../shared/status-color.pipe';
 import { StatusLabelPipe } from '../../shared/status-label.pipe';
 import { MatMenuModule } from '@angular/material/menu';
@@ -7,7 +7,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/date-utils';
+import { formatDDMMYYYY, formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/date-utils';
 
 @Component({
   selector: 'app-item-table',
@@ -53,10 +53,15 @@ import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/dat
                   {{ row.expiredCount }} expired
                 </ng-container>
                 <ng-template #singleExpiry>
-                  <div style="display:flex; gap:var(--space-sm); align-items:center;">
-                    <div style="font-weight:600;">Expires:</div>
-                    <div style="color:var(--color-danger); font-weight:700;">{{ row.expiryDisplay }}</div>
-                    <div *ngIf="row.expired" style="background:var(--bg-danger); color:var(--color-danger); padding:4px 8px; border-radius:6px; font-weight:700;">EXPIRED</div>
+                  <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
+                    <div style="display:flex; gap:var(--space-sm); align-items:center; flex-wrap:wrap;">
+                      <div style="font-weight:600;">Expires:</div>
+                      <div style="color:var(--color-danger); font-weight:700;">{{ row.expiryDisplay }}</div>
+                      <div *ngIf="row.expired" style="background:var(--bg-danger); color:var(--color-danger); padding:4px 8px; border-radius:6px; font-weight:700;">EXPIRED</div>
+                    </div>
+                    <div *ngIf="row.expiryMessage && !row.expired" class="expiry-urgency-text" [class.expiry-last-day]="row.isOneDayRemaining">
+                      {{ row.expiryMessage }}
+                    </div>
                   </div>
                 </ng-template>
               </div>
@@ -128,7 +133,7 @@ import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/dat
         </td>
       </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="['status','item','required','available','checkedDate','actions']"></tr>
+      <tr mat-header-row *matHeaderRowDef="['status','item','required','available','checkedDate','actions']; sticky: true"></tr>
       <tr mat-row *matRowDef="let row; columns: ['status','item','required','available','checkedDate','actions'];"></tr>
     </table>
   `,
@@ -162,10 +167,56 @@ import { formatDateTimeSAST, isBeforeToday, parseAnyDate } from '../../utils/dat
       background-color: var(--color-surface) !important;
       opacity: 1 !important;
     }
+    .expiry-urgency-text {
+      color: var(--color-danger);
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      animation: emergency-light 1.1s ease-in-out infinite;
+      text-shadow: 0 0 0 rgba(220, 38, 38, 0);
+      transform-origin: center;
+    }
+    .expiry-last-day {
+      animation: emergency-light 1.1s ease-in-out infinite, emergency-shake 0.32s ease-in-out infinite;
+    }
+    @keyframes emergency-light {
+      0% {
+        opacity: 1;
+        color: #991b1b;
+        text-shadow: 0 0 0 rgba(220, 38, 38, 0);
+      }
+      50% {
+        opacity: 0.78;
+        color: #ef4444;
+        text-shadow: 0 0 12px rgba(239, 68, 68, 0.7), 0 0 22px rgba(248, 113, 113, 0.45);
+      }
+      100% {
+        opacity: 1;
+        color: #991b1b;
+        text-shadow: 0 0 0 rgba(220, 38, 38, 0);
+      }
+    }
+    @keyframes emergency-shake {
+      0% {
+        transform: translateX(0);
+      }
+      25% {
+        transform: translateX(-1px) rotate(-0.4deg);
+      }
+      50% {
+        transform: translateX(1px) rotate(0.4deg);
+      }
+      75% {
+        transform: translateX(-1px) rotate(-0.2deg);
+      }
+      100% {
+        transform: translateX(0);
+      }
+    }
   `]
 })
-export class ItemTableComponent {
+export class ItemTableComponent implements OnInit, OnDestroy {
   private _items: any[] = [];
+  private expiryRefreshTimer: ReturnType<typeof setInterval> | null = null;
   @Input()
   set items(v: any[]) { this._items = v || []; this.computeViewModel(); }
   get items() { return this._items; }
@@ -177,7 +228,28 @@ export class ItemTableComponent {
   @Output() toggleSubitem = new EventEmitter<{ itemId: number; category: string; index: number }>();
 
   // Precomputed lightweight view-model for each row to avoid expensive template calls
-  computedItems: Array<{ item: any; expired: boolean; checkboxStyle: any; expiredCount: number; expiryDisplay: string; categoryIcon: string }> = [];
+  computedItems: Array<{
+    item: any;
+    expired: boolean;
+    checkboxStyle: any;
+    expiredCount: number;
+    expiryDisplay: string;
+    expiryMessage: string | null;
+    isOneDayRemaining: boolean;
+    categoryIcon: string;
+    canReplace: boolean;
+  }> = [];
+
+  ngOnInit() {
+    this.expiryRefreshTimer = setInterval(() => this.computeViewModel(), 60 * 60 * 1000);
+  }
+
+  ngOnDestroy() {
+    if (this.expiryRefreshTimer) {
+      clearInterval(this.expiryRefreshTimer);
+      this.expiryRefreshTimer = null;
+    }
+  }
 
   onToggle(item: any, event: Event) {
     if (this.isExpired(item.expiryDate)) {
@@ -252,19 +324,40 @@ export class ItemTableComponent {
     }, 0 as number);
   }
 
+  private getDaysUntil(dateLike: string | Date | null | undefined): number | null {
+    const parsed = parseAnyDate(dateLike);
+    if (!parsed) return null;
+
+    const target = new Date(parsed);
+    target.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return Math.floor((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  }
+
+  private getExpiryMessage(dateLike: string | Date | null | undefined): string | null {
+    const daysUntil = this.getDaysUntil(dateLike);
+    if (daysUntil == null || daysUntil < 0 || daysUntil > 7) return null;
+    if (daysUntil === 0) return 'Expires today';
+    if (daysUntil === 1) return 'Expires in 1 day';
+    return `Expires in ${daysUntil} days`;
+  }
+
   private computeViewModel() {
-    try { console.log('ItemTable.computeViewModel running, items ids:', (this._items||[]).map(i=>i.id)); } catch(e) {}
     const cats = this.categories ?? [];
     this.computedItems = (this._items || []).map(item => {
-      try { console.log('Item row', { id: item.id, checked: item.checked, status: item.status, available: item.available, controlQuantity: item.controlQuantity }); } catch(e) {}
       const expired = this.isExpired(item.expiryDate);
       const checkboxStyle = this.getCheckboxStyle(item);
       const expiredCount = this.getExpiredCount(item);
       const expiryDisplay = (() => {
-        const d = item.expiryDate;
-        if (!d) return '';
-        return (d instanceof Date) ? (d.getDate().toString().padStart(2,'0') + '/' + (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getFullYear()) : String(d);
+        const parsed = parseAnyDate(item.expiryDate);
+        return formatDDMMYYYY(parsed) ?? (item.expiryDate ? String(item.expiryDate) : '');
       })();
+      const daysUntilExpiry = this.getDaysUntil(item.expiryDate);
+      const expiryMessage = this.getExpiryMessage(item.expiryDate);
+      const isOneDayRemaining = daysUntilExpiry === 1;
       const categoryIcon = this.getCategoryIcon(item.category ?? item.categoryName ?? '');
       // Determine whether Replace action should be shown.
       // Show Replace for expired/depleted/insufficient items unconditionally (for visibility),
@@ -283,7 +376,7 @@ export class ItemTableComponent {
       // (Matches the intent in the comment above.)
       const canReplace = baseReplace || variantNeedsReplacement;
 
-      return { item, expired, checkboxStyle, expiredCount, expiryDisplay, categoryIcon, canReplace };
+      return { item, expired, checkboxStyle, expiredCount, expiryDisplay, expiryMessage, isOneDayRemaining, categoryIcon, canReplace };
     });
   }
 

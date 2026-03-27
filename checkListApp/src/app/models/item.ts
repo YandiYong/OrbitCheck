@@ -46,6 +46,17 @@ export interface CompletedChecklistItem {
   available: number | null;
   expiryDate: string | null;
   replacementDate: string | null;
+  displayItemId?: number | null;
+  displaySubItemId?: number | null;
+  subItems?: CompletedChecklistSubItem[];
+}
+
+export interface CompletedChecklistSubItem {
+  id: number;
+  expiryDate: string | null;
+  description: string | null;
+  replacementDate: string | null;
+  checkedDate: string | null;
 }
 
 export interface CompletedChecklistSignature {

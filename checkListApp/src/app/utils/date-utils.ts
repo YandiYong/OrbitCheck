@@ -27,9 +27,33 @@ export function formatDDMMYYYY(d: Date | null | undefined): string | null {
 export function parseAnyDate(s: string | Date | null | undefined): Date | null {
   if (!s) return null;
   if (s instanceof Date) return isNaN(s.getTime()) ? null : s;
-  const strict = parseDDMMYYYY(String(s));
+  const txt = String(s).trim();
+
+  // Accept dd/MM/yyyy HH:mm or dd/MM/yyyy HH:mm:ss (project API format)
+  const dateTimeMatch = txt.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (dateTimeMatch) {
+    const day = Number(dateTimeMatch[1]);
+    const month = Number(dateTimeMatch[2]);
+    const year = Number(dateTimeMatch[3]);
+    const hours = Number(dateTimeMatch[4]);
+    const minutes = Number(dateTimeMatch[5]);
+    const seconds = dateTimeMatch[6] ? Number(dateTimeMatch[6]) : 0;
+    const dt = new Date(year, month - 1, day, hours, minutes, seconds);
+    if (
+      dt.getFullYear() === year
+      && dt.getMonth() === month - 1
+      && dt.getDate() === day
+      && dt.getHours() === hours
+      && dt.getMinutes() === minutes
+      && dt.getSeconds() === seconds
+    ) {
+      return dt;
+    }
+  }
+
+  const strict = parseDDMMYYYY(txt);
   if (strict) return strict;
-  const parsed = new Date(String(s));
+  const parsed = new Date(txt);
   return isNaN(parsed.getTime()) ? null : parsed;
 }
 

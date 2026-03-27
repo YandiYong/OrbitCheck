@@ -95,7 +95,7 @@ type DisplayStatusSource = {
                   <div style="font-weight:700; color:var(--color-muted);">Expiry:</div>
                   <div style="font-weight:900; color:var(--color-warning);">{{ formatDateString(item.expiryDate) || '-' }}</div>
                   <div *ngIf="item.replacementDate" style="margin-left:12px; font-weight:700; color:var(--color-success);">Replaced: {{ formatDateString(item.replacementDate) }}</div>
-                  <div style="margin-left:auto; font-weight:900;" [style.color]="item | statusColor">{{ getDisplayStatus(item) }}</div>
+                  
                 </div>
               </ng-template>
               <div *ngIf="showReplaceButton(item)" style="display:flex; justify-content:flex-end; margin-top:8px;">

@@ -1,12 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { CompletedChecklistRecord } from '../models/item';
 
 @Injectable({ providedIn: 'root' })
 export class InventoryApiService {
+  private readonly completedChecklistCacheKey = 'completed-checklists-cache-v1';
+
   constructor(private http: HttpClient) {}
 
   getInventory(): Observable<any> {
@@ -15,12 +17,41 @@ export class InventoryApiService {
   }
 
   postCompletedChecklist(record: CompletedChecklistRecord): Observable<CompletedChecklistRecord> {
-    return this.http.post<CompletedChecklistRecord>(`${environment.checklistApiBaseUrl}/completed`, record);
+    const safeSessionType =
+      (record as any)?.session?.type
+      ?? (record as any)?.session?.sessionType
+      ?? (record as any)?.sessionType
+      ?? 'Audit';
+
+    const session = {
+      // Current frontend shape
+      type: safeSessionType,
+      startTime: (record as any)?.session?.startTime ?? null,
+      endTime: (record as any)?.session?.endTime ?? null,
+      durationSeconds: (record as any)?.session?.durationSeconds ?? null,
+      // Backward-compatible aliases for backend contracts that use DTO naming
+      sessionType: safeSessionType,
+      startedAt: (record as any)?.session?.startTime ?? null,
+      endedAt: (record as any)?.session?.endTime ?? null,
+    };
+
+    const payload: any = {
+      ...record,
+      session,
+      // Some backends bind only top-level sessionType/checklistType.
+      sessionType: safeSessionType,
+      checklistType: safeSessionType,
+    };
+
+    return this.http.post<CompletedChecklistRecord>(`${environment.checklistApiBaseUrl}/completed`, payload);
   }
 
-  getCompletedChecklists(): Observable<CompletedChecklistRecord[]> {
+  getCompletedChecklists(forceRefresh: boolean = false): Observable<CompletedChecklistRecord[]> {
+    const url = forceRefresh
+      ? `${environment.checklistApiBaseUrl}/completed?_ts=${Date.now()}`
+      : `${environment.checklistApiBaseUrl}/completed`;
     return this.http
-      .get<CompletedChecklistRecord[] | { [key: string]: any }>(`${environment.checklistApiBaseUrl}/completed`)
+      .get<CompletedChecklistRecord[] | { [key: string]: any }>(url)
       .pipe(
         map((response) => {
           const container = response as any;
@@ -37,9 +68,42 @@ export class InventoryApiService {
                     : Array.isArray(container?.value)
                       ? container.value
                       : [];
-          return rawRecords.map((raw: any) => this.normalizeCompletedChecklistRecord(raw));
+          const normalized = rawRecords.map((raw: any) => this.normalizeCompletedChecklistRecord(raw));
+          return normalized;
+        }),
+        tap((records) => this.writeCompletedChecklistCache(records)),
+        catchError((error) => {
+          const cached = this.readCompletedChecklistCache();
+          if (cached.length > 0) {
+            console.warn('Using cached completed checklist history after API failure', error);
+            return of(cached);
+          }
+
+          return throwError(() => error);
         })
       );
+  }
+
+  private writeCompletedChecklistCache(records: CompletedChecklistRecord[]): void {
+    try {
+      localStorage.setItem(this.completedChecklistCacheKey, JSON.stringify(records ?? []));
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  private readCompletedChecklistCache(): CompletedChecklistRecord[] {
+    try {
+      const raw = localStorage.getItem(this.completedChecklistCacheKey);
+      if (!raw) return [];
+
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.map((entry: any) => this.normalizeCompletedChecklistRecord(entry))
+        : [];
+    } catch {
+      return [];
+    }
   }
 
   private normalizeCompletedChecklistRecord(raw: any): CompletedChecklistRecord {
@@ -47,19 +111,27 @@ export class InventoryApiService {
     const sessionObj = this.pick(obj, 'session', 'Session') ?? {};
     const signatureObj = this.pick(obj, 'signature', 'Signature') ?? {};
     const rawItems = this.pick(obj, 'items', 'Items');
-    const items = Array.isArray(rawItems) ? rawItems : [];
+    const snapshotItems = this.pick(obj, 'snapshotEnd', 'SnapshotEnd')
+      ?? this.pick(sessionObj, 'snapshotEnd', 'SnapshotEnd')
+      ?? this.pick(obj, 'checklistItems', 'ChecklistItems')
+      ?? this.pick(obj, 'inventoryItems', 'InventoryItems');
+    const items = Array.isArray(rawItems)
+      ? rawItems
+      : Array.isArray(snapshotItems)
+        ? snapshotItems
+        : [];
 
     const mappedItems = items.map((item: any) => ({
-      id: Number(this.pick(item, 'id', 'Id')) || 0,
-      name: String(this.pick(item, 'name', 'Name') ?? ''),
-      category: (this.pick(item, 'category', 'Category') ?? null) as string | null,
+      id: Number(this.pick(item, 'id', 'Id', 'itemId', 'ItemId')) || 0,
+      name: String(this.pick(item, 'name', 'Name', 'itemName', 'ItemName') ?? ''),
+      category: (this.pick(item, 'category', 'Category', 'categoryName', 'CategoryName') ?? null) as string | null,
       status: this.pick(item, 'status', 'Status') ?? 'pending',
       checked: Boolean(this.pick(item, 'checked', 'Checked')),
-      checkedDate: (this.pick(item, 'checkedDate', 'CheckedDate') ?? null) as string | null,
-      controlQuantity: this.toNumberOrNull(this.pick(item, 'controlQuantity', 'ControlQuantity')),
-      available: this.toNumberOrNull(this.pick(item, 'available', 'Available', 'usedToday', 'UsedToday')),
-      expiryDate: (this.pick(item, 'expiryDate', 'ExpiryDate') ?? null) as string | null,
-      replacementDate: (this.pick(item, 'replacementDate', 'ReplacementDate') ?? null) as string | null,
+      checkedDate: (this.pick(item, 'checkedDate', 'CheckedDate', 'checkDate', 'CheckDate') ?? null) as string | null,
+      controlQuantity: this.toNumberOrNull(this.pick(item, 'controlQuantity', 'ControlQuantity', 'requiredQuantity', 'RequiredQuantity')),
+      available: this.toNumberOrNull(this.pick(item, 'available', 'Available', 'availableQuantity', 'AvailableQuantity', 'usedToday', 'UsedToday')),
+      expiryDate: (this.pick(item, 'expiryDate', 'ExpiryDate', 'expiry', 'Expiry', 'expirationDate', 'ExpirationDate') ?? null) as string | null,
+      replacementDate: (this.pick(item, 'replacementDate', 'ReplacementDate', 'replacement', 'Replacement', 'replacedAt', 'ReplacedAt') ?? null) as string | null,
     }));
 
     const summaryObj = this.pick(obj, 'summary', 'Summary') ?? {};

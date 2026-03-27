@@ -10,6 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatInputModule } from '@angular/material/input';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { firstValueFrom } from 'rxjs';
 import { InventoryApiService } from '../../services/inventory-api.service';
 import { CompletedChecklistRecord } from '../../models/item';
@@ -29,6 +30,7 @@ import { CompletedChecklistRecord } from '../../models/item';
     MatInputModule,
     MatDatepickerModule,
     MatNativeDateModule,
+    MatProgressSpinnerModule,
   ],
   template: `
     <!-- Header -->
@@ -41,6 +43,16 @@ import { CompletedChecklistRecord } from '../../models/item';
     </div>
 
     <div class="hv-body">
+      <div *ngIf="isLoading()" class="hv-loading">
+        <mat-progress-spinner mode="indeterminate" diameter="54" strokeWidth="5"></mat-progress-spinner>
+        <p>Loading checklist history...</p>
+      </div>
+
+      <ng-container *ngIf="!isLoading()">
+      <div *ngIf="loadError()" class="hv-load-error">
+        <mat-icon style="font-size:1.1rem;width:1.1rem;height:1.1rem;vertical-align:middle;">cloud_off</mat-icon>
+        <span>{{ loadError() }}</span>
+      </div>
       <!-- Left: date list -->
       <div class="hv-dates">
         <div class="hv-dates-header">
@@ -118,7 +130,7 @@ import { CompletedChecklistRecord } from '../../models/item';
                   &nbsp;({{ formatDuration(rec.session?.durationSeconds!) }})
                 </span>
               </span>
-              <span class="hv-saved-at">Saved: {{ rec.savedAt }}</span>
+              <span class="hv-saved-at">Checked: {{ rec.checklistDate }}</span>
             </div>
 
             <!-- Summary bar -->
@@ -138,11 +150,16 @@ import { CompletedChecklistRecord } from '../../models/item';
             </div>
 
             <!-- Progress bar -->
-            <mat-progress-bar
-              mode="determinate"
-              [value]="progressPct(rec)"
-              style="height:8px; border-radius:4px; margin:8px 0 12px;">
-            </mat-progress-bar>
+            <div style="display:flex; gap:8px; align-items:center; margin:8px 0 12px;">
+              <mat-progress-bar
+                mode="determinate"
+                [value]="progressPct(rec)"
+                style="height:8px; border-radius:4px; flex:1;">
+              </mat-progress-bar>
+              <div style="font-weight:700; color:var(--color-text); min-width:45px; text-align:right; font-size:0.9rem;">
+                {{ progressPct(rec) }}%
+              </div>
+            </div>
 
             <!-- Signature -->
             <div class="hv-signature" *ngIf="rec.signature">
@@ -209,6 +226,7 @@ import { CompletedChecklistRecord } from '../../models/item';
           </div>
         </ng-container>
       </div>
+      </ng-container>
     </div>
   `,
   styles: [`
@@ -237,6 +255,37 @@ import { CompletedChecklistRecord } from '../../models/item';
       flex: 1;
       min-height: 0;
       overflow: hidden;
+      position: relative;
+    }
+    .hv-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: rgba(248, 250, 252, 0.92);
+      color: #0c4a6e;
+      z-index: 2;
+      font-weight: 700;
+    }
+    .hv-load-error {
+      position: absolute;
+      top: 12px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      color: #9a3412;
+      font-size: 0.9rem;
+      font-weight: 600;
+      z-index: 1;
     }
     /* ── Date column ── */
     .hv-dates {
@@ -472,6 +521,8 @@ export class HistoryViewerComponent implements OnInit {
   selectedDate = signal<Date | null>(null);
   selectedRecords = signal<CompletedChecklistRecord[]>([]);
   expandedRecord = signal<string | null>(null);
+  isLoading = signal<boolean>(true);
+  loadError = signal<string | null>(null);
   private allRecords = signal<CompletedChecklistRecord[]>([]);
 
   filteredHistoryDates = computed(() => {
@@ -624,8 +675,10 @@ export class HistoryViewerComponent implements OnInit {
   close() { this.dialogRef.close(); }
 
   private async loadHistoryFromApi() {
+    this.isLoading.set(true);
+    this.loadError.set(null);
     try {
-      const records = await firstValueFrom(this.inventoryApi.getCompletedChecklists());
+      const records = await firstValueFrom(this.inventoryApi.getCompletedChecklists(true));
       const rawRecords = Array.isArray(records) ? records : [];
       
       // Deduplicate records by checklistDate + sessionType + signedBy signature
@@ -650,10 +703,13 @@ export class HistoryViewerComponent implements OnInit {
       if (dates.length > 0) this.selectDate(dates[0]);
     } catch (error) {
       console.error('Failed to load checklist history from API', error);
+      this.loadError.set('Checklist history could not be loaded because the API at https://localhost:7053 is unreachable.');
       this.allRecords.set([]);
       this.historyDates.set([]);
       this.selectedRecords.set([]);
       this.recordCountCache.clear();
+    } finally {
+      this.isLoading.set(false);
     }
   }
 

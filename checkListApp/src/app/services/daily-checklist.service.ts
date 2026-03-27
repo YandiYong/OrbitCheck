@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { formatDateTimeSAST, parseAnyDate, isBeforeToday } from '../utils/date-utils';
-import { CompletedChecklistRecord, CompletedChecklistSignature, Session } from '../models/item';
+import { CompletedChecklistRecord, CompletedChecklistSignature, CompletedChecklistSubItem, Session } from '../models/item';
 
 @Injectable({ providedIn: 'root' })
 export class DailyChecklistService {
@@ -106,6 +106,18 @@ export class DailyChecklistService {
     const savedAt = formatDateTimeSAST(now) ?? now.toISOString();
 
     const mappedItems = (items ?? []).map((i: any) => {
+      const rawSubItems: any[] = Array.isArray(i.items) && i.items.length
+        ? i.items
+        : (Array.isArray(i.subItems) && i.subItems.length ? i.subItems : []);
+
+      const mappedSubItems: CompletedChecklistSubItem[] = rawSubItems.map((s: any) => ({
+        id: typeof s.id === 'number' ? s.id : Number(s.id) || 0,
+        expiryDate: this.toApiDateTime(s.expiryDate),
+        description: s.description ?? null,
+        replacementDate: this.toApiDateTime(s.replacementDate),
+        checkedDate: this.toApiDateTime(s.checkedDate)
+      }));
+
       return {
         id: i.id,
         name: i.name,
@@ -116,7 +128,10 @@ export class DailyChecklistService {
         controlQuantity: typeof i.controlQuantity === 'number' ? i.controlQuantity : null,
         available: typeof i.available === 'number' ? i.available : null,
         expiryDate: this.toApiDateTime(i.expiryDate),
-        replacementDate: this.toApiDateTime(i.replacementDate)
+        replacementDate: this.toApiDateTime(i.replacementDate),
+        displayItemId: typeof i.displayItemId === 'number' ? i.displayItemId : (i.displayItemId != null ? Number(i.displayItemId) || null : null),
+        displaySubItemId: typeof i.displaySubItemId === 'number' ? i.displaySubItemId : (i.displaySubItemId != null ? Number(i.displaySubItemId) || null : null),
+        ...(mappedSubItems.length ? { subItems: mappedSubItems } : {})
       };
     });
 
@@ -134,18 +149,22 @@ export class DailyChecklistService {
       return `${hh}:${mm}:${ss}`;
     };
 
-    const startTime = formatTimeOnly(activeSession?.startTime);
-    const endTime = formatTimeOnly(activeSession?.endTime);
+    const startTime = activeSession?.startTime ? formatTimeOnly(activeSession.startTime) : null;
+    const endTime = activeSession?.endTime ? formatTimeOnly(activeSession.endTime) : null;
+    const durationSeconds = activeSession?.durationSeconds ?? null;
+
+    // Always ensure session is built with at least the type, even if activeSession is missing
+    const sessionRecord = {
+      type: sessionType || 'Audit',
+      startTime: startTime as string | null,
+      endTime: endTime as string | null,
+      durationSeconds: durationSeconds as number | null
+    };
 
     return {
       checklistDate: this.toApiDateTime(date) ?? date.toISOString(),
       savedAt,
-      session: {
-        type: sessionType,
-        startTime,
-        endTime,
-        durationSeconds: typeof activeSession?.durationSeconds === 'number' ? activeSession.durationSeconds : null
-      },
+      session: sessionRecord,
       summary: {
         totalItems: totalRequired,
         checkedItems: mappedItems.filter((i: any) => i.checked).length,

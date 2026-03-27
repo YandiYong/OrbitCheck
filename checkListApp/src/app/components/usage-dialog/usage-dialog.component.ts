@@ -531,7 +531,6 @@ export class UsageDialogComponent {
     delete instClone.expiryDates;
     const ref = this.matDialog.open(ReplaceDialogComponent, { data: { item: instClone }, width: '520px' });
     ref.afterClosed().subscribe((res: any) => {
-      console.log('Replace dialog closed, result:', res);
       if (!res) return;
       // Merge returned result into the instance so the UI shows the replacement
       const current = (this.data.instances || [])[index] || {};
@@ -555,7 +554,6 @@ export class UsageDialogComponent {
       this.error = null;
       // notify user and force change detection so UI updates immediately
       this.globalSnack.show('Replacement applied', 3000);
-      console.log('after replacement - instanceDisabled:', Array.from(this.instanceDisabled), 'selectedIndices:', Array.from(this.selectedIndices));
       this.cdr.detectChanges();
     });
   }

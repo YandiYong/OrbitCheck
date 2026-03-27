@@ -17,6 +17,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 // import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { FormsModule } from '@angular/forms';
 import { CompletedChecklistRecord, CompletedChecklistSignature, Session } from '../../models/item';
@@ -31,6 +32,7 @@ import { StatsCardComponent } from '../stats-card/stats-card.component';
 import { ItemTableComponent } from '../item-table/item-table.component';
 import { UsageDialogComponent } from '../usage-dialog/usage-dialog.component';
 import { EditItemDialogComponent } from '../edit-item-dialog/edit-item-dialog.component';
+import { HistoryViewerComponent } from '../history-viewer/history-viewer.component';
 import { HttpClientModule } from '@angular/common/http';
 import { MessageDialogComponent } from '../../shared/message-dialog.component';
 
@@ -58,6 +60,7 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
     MatNativeDateModule,
     MatDividerModule,
     MatProgressBarModule,
+    MatProgressSpinnerModule,
     // MatPaginatorModule,
     ReplaceDialogComponent,
     DetailsDialogComponent,
@@ -73,14 +76,20 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
   ],
   providers: [InventoryApiService],
   template: `
-  <mat-toolbar color="primary" style="display:flex; justify-content:space-between;">
+  <div class="im-shell">
+  <mat-toolbar color="primary" class="im-toolbar" style="display:flex; justify-content:space-between;">
     <div style="display:flex; align-items:center; gap:8px;">
-      <div style="display:flex; ">
-        <span style="font-weight:700; font-size:2.2rem;">Emergency Trolley Check List</span>
-        <span style="font-size:2rem; opacity:0.9; margin-left:32px;">{{ today | date:'fullDate' }}</span>
+      <div class="im-toolbar-main" style="display:flex; ">
+        <span class="im-title" style="font-weight:700; font-size:2.2rem;">Emergency Trolley Check List</span>
+        <span class="im-date" style="font-size:2rem; opacity:0.9; margin-left:32px;">{{ today | date:'fullDate' }}</span>
       </div>
     </div>
     <div style="display:flex; align-items:center; gap:8px; margin-right:12px;">
+      <button mat-flat-button class="history-cta" (click)="openHistory()" [disabled]="historyLoading()" aria-label="Open checklist history">
+        <mat-progress-spinner *ngIf="historyLoading()" mode="indeterminate" diameter="18" strokeWidth="3" style="margin-right:4px;"></mat-progress-spinner>
+        <mat-icon *ngIf="!historyLoading()">history</mat-icon>
+        {{ historyLoading() ? 'Loading history...' : 'History' }}
+      </button>
       <mat-icon>trolley</mat-icon>
     </div>
   </mat-toolbar>
@@ -94,8 +103,8 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
         <div *ngIf="showingCached()" style="margin-top:var(--space-sm); font-size:0.9rem; color:#4b5563;">Showing cached snapshot for today.</div>
       </mat-card>
     </div>
-    <mat-sidenav-container style="height:calc(100vh); width:100%;">
-      <mat-sidenav mode="side" opened style="width:400px; padding:var(--space-md); background:var(--color-surface); box-shadow:0 6px 18px rgba(16,24,40,0.06);">
+    <mat-sidenav-container class="im-layout" style="width:100%;">
+      <mat-sidenav mode="side" opened class="im-sidebar" style="padding:var(--space-md); background:var(--color-surface); box-shadow:0 6px 18px rgba(16,24,40,0.06);">
         <app-sidebar
           [categories]="categories()"
           [selectedCategory]="selectedCategory()"
@@ -107,8 +116,26 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
         </app-sidebar>
       </mat-sidenav>
 
-      <mat-sidenav-content style="padding:0 var(--space-lg) var(--space-sm) var(--space-lg);">
+      <mat-sidenav-content class="im-content" style="padding:0 var(--space-lg) var(--space-sm) var(--space-lg);">
         <div style="position:sticky; top:0; background:var(--color-bg); z-index:10; padding-top:var(--space-sm); padding-bottom:var(--space-md);">
+        <div style="margin-left:auto; margin-bottom:var(--space-md); z-index:20; width:min(560px, 100%); background:linear-gradient(135deg, #e0f2fe 0%, #bae6fd 45%, #7dd3fc 100%); padding:12px 14px; border-radius:12px; box-shadow:0 0 0 2px rgba(2,132,199,0.26), 0 10px 26px rgba(2,132,199,0.28); border-left:5px solid #0369a1; display:flex; align-items:center; gap:12px;">
+          <span style="font-weight:700; color:#0369a1; font-size:0.95rem; display:flex; align-items:center; gap:6px; white-space:nowrap;">
+            <mat-icon style="font-size:1.05rem; width:1.05rem; height:1.05rem;">trending_up</mat-icon>
+            {{ activeSession() ? 'Checklist Progress' : 'Checklist State' }}
+          </span>
+          <div style="position:relative; width:60px; height:60px; border-radius:50%; flex:0 0 60px; filter:drop-shadow(0 2px 6px rgba(2,132,199,0.35));"
+               [style.background]="getProgressCircleBackground()">
+            <div style="position:absolute; inset:6px; border-radius:50%; background:white; display:flex; align-items:center; justify-content:center; font-weight:800; color:#0284c7; font-size:0.8rem; box-shadow:inset 0 0 0 1px rgba(2,132,199,0.1);">
+              {{ getProgressPercentage() }}%
+            </div>
+          </div>
+          <div style="flex:0 0 250px; min-width:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+              <span style="font-weight:600; color:#0c4a6e; font-size:0.82rem;">{{ getChecklistStats().checked }}/{{ getChecklistStats().total }} checked</span>
+              <span style="font-weight:700; color:#075985; font-size:0.8rem;">{{ activeSession() ? 'Live' : 'Saved state' }}</span>
+            </div>
+          </div>
+        </div>
           <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-md); margin-bottom:var(--space-md);">
             <app-stats-card [count]="expiringSoonCount()" title="Expiring in the next 3 months" subtitle="Due for ordering" [subtitleColor]="'#f97316'" borderColor="#f97316" (clicked)="openDetailsForType('expiring')"></app-stats-card>
             <app-stats-card [count]="replacedThisMonthCount()" title="Replacements" subtitle="Replaced items" [subtitleColor]="'#0284c7'" borderColor="#0284c7" (clicked)="openDetailsForType('replaced')"></app-stats-card>
@@ -143,6 +170,8 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
           <mat-paginator [length]="dateFilteredItems().length" [pageSize]="pageSize()" [pageSizeOptions]="[25, 50, 100]" (page)="onPageChange($event)" showFirstLastButtons aria-label="Select page" style="background:transparent; flex:1;"></mat-paginator>
         </div>
         -->
+        
+
         <div style="position:sticky; top:200px; z-index:8; background:var(--bg-info); padding:var(--space-md); box-shadow:0 2px 8px rgba(0,0,0,0.06); margin-bottom:0; display:flex; justify-content:space-between; align-items:center;">
           <div>
             <h2 style="font-size:2rem; font-weight:700; margin:0; line-height:1.1; color:#111827;">Check List</h2>
@@ -154,20 +183,6 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
           </div>
         </div>
         
-        <div *ngIf="activeSession()" style="margin-bottom:var(--space-md); background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding:var(--space-md); border-radius:12px; box-shadow:0 4px 12px rgba(2,132,199,0.15); border-left:4px solid #0284c7;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <span style="font-weight:700; color:#0284c7; font-size:1.1rem; display:flex; align-items:center; gap:6px;">
-              <mat-icon style="font-size:1.3rem; width:1.3rem; height:1.3rem;">trending_up</mat-icon>
-              Checklist Progress
-            </span>
-            <span style="font-weight:800; color:#0284c7; font-size:1.2rem; background:white; padding:4px 12px; border-radius:20px; box-shadow:0 2px 4px rgba(2,132,199,0.2);">{{ getProgressPercentage() }}%</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <span style="font-weight:600; color:#0c4a6e; font-size:0.9rem;">{{ getChecklistStats().checked }}/{{ filteredInventory().length }} items checked</span>
-          </div>
-          <mat-progress-bar mode="determinate" [value]="getProgressPercentage()" style="height:14px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);"></mat-progress-bar>
-        </div>
-        
         <mat-card style="background:var(--color-surface); box-shadow:0 8px 30px rgba(2,6,23,0.04);">
           <mat-card-content style="padding:0;">
             <app-item-table [items]="dateFilteredItems()" [categories]="categories()" (viewItem)="openDetailsForItem($event)" (editItem)="openEditDialog($event)" (replaceItem)="openReplaceDialog($event)" (toggleCheckbox)="handleCheckboxClick($event)" (toggleSubitem)="handleSubitemToggle($event)"></app-item-table>
@@ -175,10 +190,42 @@ import { SignatureWrapperModule } from '../../shared/signature-wrapper.module';
         </mat-card>
       </mat-sidenav-content>
     </mat-sidenav-container>
+  </div>
 
   `,
   styles: [`
-    :host { display:block; height:100%; font-family: 'Roboto', sans-serif; background:#f3f6f9; }
+    :host { display:block; height:100dvh; font-family: 'Roboto', sans-serif; background:#f3f6f9; overflow-x: clip; }
+    .im-shell {
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      overflow-x: clip;
+      background: #f3f6f9;
+    }
+    .im-layout {
+      flex: 1;
+      min-height: 0;
+    }
+    .im-sidebar {
+      width: clamp(260px, 28vw, 400px);
+      max-width: 90vw;
+    }
+    .im-content {
+      min-width: 0;
+      overflow-x: clip;
+    }
+    .im-toolbar-main {
+      align-items: baseline;
+      flex-wrap: wrap;
+      row-gap: 4px;
+    }
+    @media (max-width: 900px) {
+      .im-title { font-size: 1.35rem !important; }
+      .im-date { font-size: 1rem !important; margin-left: 10px !important; }
+      .im-sidebar { width: 280px; }
+      .im-content { padding: 0 var(--space-sm) var(--space-sm) var(--space-sm) !important; }
+    }
     .full-table { width:100%; }
     .history-cta {
       background: linear-gradient(135deg, #facc15 0%, #f59e0b 100%) !important;
@@ -249,6 +296,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   isFinishingSession = signal<boolean>(false);
   now = signal<Date>(new Date());
   loading = signal<boolean>(false);
+  historyLoading = signal<boolean>(false);
   apiError = signal<string | null>(null);
   showingCached = signal<boolean>(false);
   constructor( private inventoryApi: InventoryApiService, private dialog: MatDialog, private dailyService: DailyChecklistService, private cdr: ChangeDetectorRef) {}
@@ -305,6 +353,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
   // Use `any[]` here so the runtime objects can match the JSON shape
   // without requiring changes to the `Item` model file.
   inventory = signal<any[]>([]);
+  completedRecords = signal<CompletedChecklistRecord[]>([]);
 
   // Per-item operation queues to serialize async merges and avoid race conditions
   private itemQueues: Map<any, Promise<any>> = new Map();
@@ -323,11 +372,19 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadInventory();
+    this.loadCompletedRecords();
     // update clock every second for timer display
     this.timerId = setInterval(() => this.now.set(new Date()), 1000);
     // restore any active session for today
     const active = this.dailyService.getActiveSession();
     if (active) this.activeSession.set(active);
+  }
+
+  private loadCompletedRecords() {
+    this.inventoryApi.getCompletedChecklists().subscribe({
+      next: records => this.completedRecords.set(records ?? []),
+      error: () => {}
+    });
   }
 
   ngOnDestroy(): void {
@@ -423,9 +480,15 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           const ctrlQty = it.controlQuantity ?? 1;
           // normalize variants expiry dates to dd/MM/yyyy for consistent display
           let normalizedVariants: any[] | undefined = undefined;
-          const rawVariantsForNormalise = Array.isArray(it.variants) ? it.variants : (Array.isArray(it.items) ? it.items : undefined);
+          const rawVariantsForNormalise = Array.isArray(it.variants)
+            ? it.variants
+            : (Array.isArray(it.items)
+              ? it.items
+              : (Array.isArray(it.subItems)
+                ? it.subItems
+                : (it.subItem ? [it.subItem] : undefined)));
           if (Array.isArray(rawVariantsForNormalise)) {
-            normalizedVariants = (rawVariantsForNormalise as any[]).map(v => {
+            normalizedVariants = (rawVariantsForNormalise as any[]).map((v, idx) => {
               const dates = (Array.isArray(v.expiryDates) ? v.expiryDates : (v.expiryDate ? [v.expiryDate] : [])).filter(Boolean).map((d: any) => {
                 // prefer project dd/MM/yyyy parsing
                 const parsedD = this.parseDate(String(d));
@@ -442,8 +505,26 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
               const variantName = v.itemName ?? v.name ?? it.itemName ?? it.name ?? null;
               const variantCategory = v.category ?? it.category ?? cat?.category ?? cat?.categoryName ?? it.categoryName ?? it.group ?? it.type ?? null;
               const variantDescription = v.description ?? v.size ?? v.unit ?? it.description ?? null;
-              return { ...v, expiryDates: dates, expiryDate: dates[0] ?? null, name: variantName, category: variantCategory, description: variantDescription };
+              return {
+                ...v,
+                id: (v?.id == null ? ((it?.id ?? 0) * 1000 + idx) : v.id),
+                expiryDates: dates,
+                expiryDate: dates[0] ?? null,
+                name: variantName,
+                category: variantCategory,
+                description: variantDescription,
+              };
             });
+
+            // API can send one template subItem while quantity is > 1.
+            // Expand it so checklist instance logic can operate on all required units.
+            if ((it.controlQuantity ?? 1) > 1 && normalizedVariants.length === 1) {
+              const template = normalizedVariants[0];
+              normalizedVariants = Array.from({ length: Number(it.controlQuantity) }).map((_, idx) => ({
+                ...template,
+                id: (template?.id == null ? ((it?.id ?? 0) * 1000 + idx) : (Number(template.id) * 100 + idx)),
+              }));
+            }
           }
           let rawStatus = it.status ?? '';
           let normalizedStatus = String(rawStatus).toLowerCase();
@@ -541,37 +622,188 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     return 'excessive';
   }
 
+  private pickPrimaryExpiryFromVariants(variants: any[] | null | undefined, fallback?: string | null): string | null {
+    const list = Array.isArray(variants) ? variants : [];
+    const entries = list.map((v: any) => {
+      const raw = v?.expiryDate ?? (Array.isArray(v?.expiryDates) ? v.expiryDates[0] : null) ?? null;
+      const parsed = raw ? this.parseDate(String(raw)) : null;
+      return {
+        raw: raw ? String(raw) : null,
+        parsed,
+        available: v?.available !== false,
+        expired: raw ? this.isExpired(String(raw)) : false
+      };
+    }).filter((e: any) => !!e.raw);
+
+    if (!entries.length) return fallback ?? null;
+
+    const parsedEntries = entries.filter((e: any) => !!e.parsed);
+    if (!parsedEntries.length) return entries[0].raw;
+
+    const rank = (set: any[]) => set.sort((a: any, b: any) => a.parsed.getTime() - b.parsed.getTime())[0].raw;
+    const availableNonExpired = parsedEntries.filter((e: any) => e.available && !e.expired);
+    if (availableNonExpired.length) return rank(availableNonExpired);
+
+    const anyNonExpired = parsedEntries.filter((e: any) => !e.expired);
+    if (anyNonExpired.length) return rank(anyNonExpired);
+
+    return rank(parsedEntries);
+  }
+
+  private computeAvailableFromVariants(variants: any[] | null | undefined): number {
+    const list = Array.isArray(variants) ? variants : [];
+    return list.reduce((count: number, v: any) => {
+      if (v?.available === false) return count;
+      const d = v?.expiryDate ?? (Array.isArray(v?.expiryDates) ? v.expiryDates[0] : null);
+      if (d && this.isExpired(d)) return count;
+      return count + 1;
+    }, 0);
+  }
+
+  private latestCompletedItems(): any[] {
+    const records = this.completedRecords();
+    if (!records.length) return [];
+    const latest = records[records.length - 1];
+    return Array.isArray(latest?.items) ? latest.items : [];
+  }
+
+  private completedItemsForSelectedCategory(): any[] {
+    const items = this.latestCompletedItems();
+    const selected = this.selectedCategory();
+    if (!selected || selected === 'All Items') return items;
+    const target = String(selected).trim().toLowerCase();
+    return items.filter((item: any) => String(item?.category ?? '').trim().toLowerCase() === target);
+  }
+
+  private mergedInventory = computed(() => {
+    const inv = this.inventory();
+    const records = this.completedRecords();
+    if (!records.length) return inv;
+
+    const byIdCategory = new Map<string, { expiryDate: string | null; replacementDate: string; status: string | null; ts: number }>();
+    const byId = new Map<string, { expiryDate: string | null; replacementDate: string; status: string | null; ts: number }>();
+
+    for (const record of records) {
+      const recTs = this.parseDate(record?.savedAt ?? record?.checklistDate)?.getTime() ?? 0;
+      const recItems = Array.isArray(record?.items) ? record.items : [];
+      for (const item of recItems) {
+        if (!item?.replacementDate) continue;
+        const idKey = String(item?.id ?? '');
+        const catKey = String(item?.category ?? '').trim().toLowerCase();
+        const key = `${idKey}-${catKey}`;
+        const repTs = this.parseDate(item?.replacementDate)?.getTime() ?? recTs;
+        const candidate = {
+          expiryDate: item?.expiryDate ?? null,
+          replacementDate: String(item.replacementDate),
+          status: item?.status ? String(item.status).toLowerCase() : null,
+          ts: repTs
+        };
+
+        const prevByCat = byIdCategory.get(key);
+        if (!prevByCat || candidate.ts >= prevByCat.ts) byIdCategory.set(key, candidate);
+
+        const prevById = byId.get(idKey);
+        if (!prevById || candidate.ts >= prevById.ts) byId.set(idKey, candidate);
+      }
+    }
+
+    if (!byIdCategory.size && !byId.size) return inv;
+
+    return inv.map((item: any) => {
+      const idKey = String(item?.id ?? '');
+      const key = `${idKey}-${String(item?.category ?? '').trim().toLowerCase()}`;
+      const rep = byIdCategory.get(key) ?? byId.get(idKey);
+      if (!rep) return item;
+      const updated: any = { ...item, replacementDate: rep.replacementDate };
+      if (rep.expiryDate && !this.isExpired(rep.expiryDate)) updated.expiryDate = rep.expiryDate;
+      if (rep.status) updated.status = rep.status;
+      return updated;
+    });
+  });
+
+  private replacedItemsForSelectedCategoryCurrentMonth(): any[] {
+    const selected = this.selectedCategory();
+    const target = String(selected ?? '').trim().toLowerCase();
+    const now = new Date();
+
+    const latestByKey = new Map<string, { item: any; ts: number }>();
+    for (const record of this.completedRecords()) {
+      const ts = this.parseDate(record?.savedAt ?? record?.checklistDate)?.getTime() ?? 0;
+      const recItems = Array.isArray(record?.items) ? record.items : [];
+      for (const item of recItems) {
+        if (selected && selected !== 'All Items') {
+          const itemCategory = String(item?.category ?? '').trim().toLowerCase();
+          if (itemCategory !== target) continue;
+        }
+
+        const key = `${item?.id ?? ''}-${String(item?.category ?? '').trim().toLowerCase()}`;
+        const existing = latestByKey.get(key);
+        if (!existing) {
+          latestByKey.set(key, { item, ts });
+          continue;
+        }
+
+        const existingHasReplacement = !!existing.item?.replacementDate;
+        const incomingHasReplacement = !!item?.replacementDate;
+
+        // Prefer entries that carry replacementDate; otherwise prefer latest by record time.
+        if ((incomingHasReplacement && !existingHasReplacement) || (incomingHasReplacement === existingHasReplacement && ts >= existing.ts)) {
+          latestByKey.set(key, { item, ts });
+        }
+      }
+    }
+
+    return Array.from(latestByKey.values())
+      .map(v => v.item)
+      .filter((item: any) => {
+        if (!item?.replacementDate) return false;
+        const replaced = this.parseDate(item.replacementDate);
+        if (!replaced) return false;
+        return replaced.getMonth() === now.getMonth() && replaced.getFullYear() === now.getFullYear();
+      });
+  }
+
   expiringSoonCount = computed(() => {
-  const now = new Date();
-  const threeMonthsFromNow = new Date();
-  threeMonthsFromNow.setMonth(now.getMonth() + 3);
-
-  return this.filteredInventory().filter(item => {
-    if (!item.expiryDate) return false;
-
-    const expiry = this.parseDate(item.expiryDate);
-    if (!expiry) return false;
-    
-    return expiry >= now && expiry <= threeMonthsFromNow;
-  }).length;
-});
-
+    const now = new Date();
+    const threeMonthsFromNow = new Date();
+    threeMonthsFromNow.setMonth(now.getMonth() + 3);
+    return this.completedItemsForSelectedCategory().filter(item => {
+      if (!item.expiryDate) return false;
+      const expiry = this.parseDate(item.expiryDate);
+      if (!expiry) return false;
+      return expiry >= now && expiry <= threeMonthsFromNow;
+    }).length;
+  });
 
   replacedThisMonthCount = computed(() => {
-    const now = new Date();
-    return this.filteredInventory().filter(item => {
-      if (!item.replacementDate) return false;
-      const r = this.parseDate(item.replacementDate);
-      if (!r) return false;
-      return r.getMonth() === now.getMonth() && r.getFullYear() === now.getFullYear();
-    }).length;
+    return this.replacedItemsForSelectedCategoryCurrentMonth().length;
   });
 
   getChecklistStats = computed(() => {
     const inv = this.filteredInventory();
-    const checked = inv.filter(i => i.checked).length;
+    const liveChecked = inv.filter(i => i.checked).length;
     const unavailable = inv.filter(i => i.checked && i.status === 'depleted').length;
-    return { checked, unavailable, total: inv.length };
+    // When no active session, use the most recent completed record's summary so
+    // the count persists through refreshes.
+    const checked = this.activeSession()
+      ? liveChecked
+      : (() => {
+          const records = this.completedRecords();
+          if (!records.length) return liveChecked;
+          const latest = records[records.length - 1];
+          return latest?.summary?.checkedItems ?? liveChecked;
+        })();
+
+    const total = this.activeSession()
+      ? inv.length
+      : (() => {
+          const records = this.completedRecords();
+          if (!records.length) return inv.length;
+          const latest = records[records.length - 1];
+          return latest?.summary?.totalItems ?? inv.length;
+        })();
+
+    return { checked, unavailable, total };
   });
 
   getProgressPercentage = computed(() => {
@@ -580,9 +812,14 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     return Math.round((stats.checked / stats.total) * 100);
   });
 
+  getProgressCircleBackground() {
+    const pct = Math.max(0, Math.min(100, this.getProgressPercentage()));
+    return `conic-gradient(#0284c7 ${pct}%, #bae6fd ${pct}% 100%)`;
+  }
+
   filteredInventory = computed(() => {
-    if (this.selectedCategory() === 'All Items') return this.inventory();
-    return this.inventory().filter(i => i.category === this.selectedCategory());
+    if (this.selectedCategory() === 'All Items') return this.mergedInventory();
+    return this.mergedInventory().filter(i => i.category === this.selectedCategory());
   });
 
   toggleCategory(name: string) {
@@ -707,19 +944,13 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
                   if (newInst?.expiryDate) {
                     newItems[idx] = { ...(newItems[idx] || {}), expiryDate: newInst.expiryDate, replacementDate: now, isReplacement: true };
                   }
-                  const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
-                  const primary = allDates.length ? allDates.sort()[0] : (newItems[0]?.expiryDate ?? i.expiryDate);
+                  const primary = this.pickPrimaryExpiryFromVariants(newItems, i.expiryDate);
                   // compute replacedCount from explicit `isReplacement` flags on instances
                   const totalInstances = Math.max(origItems.length, i.controlQuantity || 0, 1);
                   const actualReplacedCount = newItems.filter((v: any) => !!v.isReplacement).length;
                   const allReplaced = actualReplacedCount >= totalInstances;
                   // compute available count from merged items so the table updates as each instance is replaced
-                  const availableNow = newItems.reduce((cnt: number, v: any) => {
-                    if (v.available === false) return cnt;
-                    const d = v.expiryDate ?? (Array.isArray(v.expiryDates) ? v.expiryDates[0] : null);
-                    if (d && this.isExpired(d)) return cnt;
-                    return cnt + 1;
-                  }, 0);
+                  const availableNow = this.computeAvailableFromVariants(newItems);
                   // Increment available by one for this immediate per-instance replacement, capped to availableNow
                   const prevAvailableInst = i.available ?? 0;
                   const instIncrement = 1;
@@ -828,8 +1059,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
               }
               newItem.items = newItems;
               // set primary expiryDate to earliest known (fallback to first)
-              const allDates = newItems.map((v: any) => v.expiryDate).filter(Boolean);
-              newItem.expiryDate = allDates.length ? allDates[0] : newItem.expiryDate;
+              newItem.expiryDate = this.pickPrimaryExpiryFromVariants(newItems, newItem.expiryDate);
               // compute replacedCount from explicit flags (do not accumulate)
               const totalInstances = Math.max(i.controlQuantity || 0, origItems.length, 1);
               const actualReplaced = newItems.filter((v: any) => !!v.isReplacement).length;
@@ -1060,8 +1290,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           }
 
           // determine primary expiry
-          const allDates = merged.map((v: any) => v.expiryDate).filter(Boolean);
-          const primary = allDates.length ? allDates.sort()[0] : i.expiryDate;
+          const primary = this.pickPrimaryExpiryFromVariants(merged, i.expiryDate);
 
           // Count how many variants originally needed replacement (so we only consider those)
           const originallyNeeded = (Array.isArray(origItems) && origItems.length) ? origItems.filter((v: any) => !!v.needsReplacement).length : 0;
@@ -1083,12 +1312,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           if (replacedFlags) newItem.replacedCount = replacedFlags;
 
           // Compute current available count from merged variants so the UI's "Available" column updates
-          const availableCount = Array.isArray(merged) ? merged.reduce((count: number, v: any) => {
-            if (v.available === false) return count;
-            const d = v.expiryDate ?? (Array.isArray(v.expiryDates) ? v.expiryDates[0] : null);
-            if (d && this.isExpired(d)) return count;
-            return count + 1;
-          }, 0) : 0;
+          const availableCount = this.computeAvailableFromVariants(merged);
           // Increment available by the number of variants replaced in this operation, but never exceed availableCount
           const prevAvailable = i.available ?? 0;
           const increment = replacedFlags || 0;
@@ -1104,13 +1328,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
           } catch (e) {
             // ignore
           }
-          // Diagnostic log to help trace replacement updates
-          try {
-            const nextAvailable = newItem.available;
-            console.log('replace result', result, replacedFlags, availableCount, prevAvailable, nextAvailable);
-          } catch (e) {
-            // ignore logging errors
-          }
+
 
           // Mark item-level `replacementDate` when either:
           //  - all originally-needed variants were replaced, OR
@@ -1271,7 +1489,6 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         const completionRecord: CompletedChecklistRecord = this.dailyService.buildCompletedChecklistRecord(sessionType, completedSession, currentItems, new Date(), signature);
         try {
           const saved = await firstValueFrom(this.inventoryApi.postCompletedChecklist(completionRecord));
-          console.log('[Finish] Backend response:', saved);
           // Sync backend-authoritative statuses back into the UI
           if (saved?.items?.length) {
             this.inventory.update(items => items.map(i => {
@@ -1281,6 +1498,8 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
               return canonical ? { ...i, status: String(canonical.status ?? i.status).toLowerCase() } : i;
             }));
           }
+          // Refresh completed records so cards reflect the new session immediately
+          this.loadCompletedRecords();
         } catch (err: any) {
           console.error('Failed to post completed checklist', err);
           console.error('API error body:', err?.error);
@@ -1345,6 +1564,17 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
         }
       });
     }
+  }
+
+  openHistory() {
+    this.historyLoading.set(true);
+    const ref = this.dialog.open(HistoryViewerComponent, {
+      width: '1200px',
+      maxWidth: '96vw',
+      height: '86vh',
+      panelClass: 'history-viewer-dialog'
+    });
+    ref.afterClosed().subscribe(() => this.historyLoading.set(false));
   }
 
   getSessionElapsed(): string {
@@ -1415,7 +1645,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     const threeMonthsFromNow = new Date();
     threeMonthsFromNow.setMonth(now.getMonth() + 3);
 
-    const items = this.filteredInventory().filter(i => {
+    const items = this.completedItemsForSelectedCategory().filter(i => {
       if (!i.expiryDate) return false;
 
       const expiry = this.parseDate(i.expiryDate);
@@ -1438,19 +1668,7 @@ export class InventoryManagementComponent implements OnInit, OnDestroy {
     }
 
   } else if (type === 'replaced') {
-    const now = new Date();
-
-    const items = this.filteredInventory().filter(i => {
-      if (!i.replacementDate) return false;
-
-      const replaced = this.parseDate(i.replacementDate);
-      if (!replaced) return false;
-      
-      return (
-        replaced.getMonth() === now.getMonth() &&
-        replaced.getFullYear() === now.getFullYear()
-      );
-    });
+    const items = this.replacedItemsForSelectedCategoryCurrentMonth();
 
     if (items.length) {
       this.dialog.open(DetailsDialogComponent, {
